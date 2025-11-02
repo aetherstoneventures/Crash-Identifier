@@ -1,5 +1,55 @@
 # Quick Start Guide - Market Crash Predictor
 
+## ⚙️ Prerequisites & Setup
+
+### 1. Environment Configuration (REQUIRED)
+
+Before running the system, you **must** create a `.env` file with your API keys:
+
+```bash
+# Copy the example template
+cp .env.example .env
+
+# Edit the .env file and add your FRED API key
+nano .env  # or use your preferred editor
+```
+
+**Required `.env` file format:**
+```bash
+# ============================================================================
+# REQUIRED: FRED API Key
+# ============================================================================
+# Get your free API key at: https://fredaccount.stlouisfed.org/apikeys
+FRED_API_KEY=your_actual_fred_api_key_here
+
+# ============================================================================
+# OPTIONAL: Other configurations (defaults provided)
+# ============================================================================
+DATABASE_URL=sqlite:///data/market_crash.db
+FRED_RATE_LIMIT=120
+FRED_TIMEOUT=30
+YAHOO_TIMEOUT=30
+LOG_LEVEL=INFO
+SCHEDULER_HOUR=6
+SCHEDULER_MINUTE=0
+RANDOM_STATE=42
+```
+
+**How to get your FRED API key:**
+1. Visit: https://fredaccount.stlouisfed.org/apikeys
+2. Create a free account (takes 2 minutes)
+3. Click "Request API Key"
+4. Copy your API key
+5. Paste it into `.env` file: `FRED_API_KEY=your_key_here`
+
+**⚠️ Important:**
+- The `.env` file is **NOT** created automatically
+- You **MUST** create it manually before running the pipeline
+- Without a valid FRED API key, data collection will fail
+- The `.env` file is git-ignored for security (never commit API keys!)
+
+---
+
 ## 🚀 Starting the Dashboard
 
 ```bash
@@ -29,7 +79,7 @@ Then open: **http://localhost:8501**
 ---
 
 ### 2. **Indicators → All Indicators**
-- **28 Financial Indicators**: All now available for plotting
+- **20 Financial Indicators**: All now available for plotting
 - **Checkbox Selection**: Select which indicators to display
 - **Interactive Charts**: Zoom, pan, hover for details
 

@@ -117,21 +117,35 @@ python3 scripts/evaluate_crash_detection.py
 
 ### Setup
 
-1. **Create virtual environment**
+1. **Create `.env` file (REQUIRED)**
+   ```bash
+   # Copy the example template
+   cp .env.example .env
+
+   # Edit and add your FRED API key
+   nano .env
+   ```
+
+   **Get your free FRED API key:**
+   - Visit https://fredaccount.stlouisfed.org/apikeys
+   - Create a free account (takes 2 minutes)
+   - Copy your API key and paste into `.env` file
+
+   **Required format:**
+   ```bash
+   FRED_API_KEY=your_actual_fred_api_key_here
+   ```
+
+2. **Create virtual environment**
    ```bash
    python3 -m venv venv
    source venv/bin/activate
    ```
 
-2. **Install dependencies**
+3. **Install dependencies**
    ```bash
    pip install -r requirements.txt
    ```
-
-3. **Get FRED API Key**
-   - Visit https://fredaccount.stlouisfed.org/login/secure/
-   - Create a free account and generate an API key
-   - Set environment variable: `export FRED_API_KEY=your_key_here`
 
 ## 🔧 Key Features
 
