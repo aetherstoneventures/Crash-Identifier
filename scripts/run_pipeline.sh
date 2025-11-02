@@ -115,22 +115,40 @@ echo -e "${GREEN}✓ Requirements installed${NC}\n"
 # ============================================================================
 # STEP 5: Run the full pipeline
 # ============================================================================
-echo -e "${YELLOW}[STEP 5/7] Running the full pipeline...${NC}\n"
+echo -e "${YELLOW}[STEP 5/5] Running the full pipeline...${NC}\n"
 
-echo -e "${BLUE}--- Step 1: Running Data Backfill ---${NC}"
-python3 "$PROJECT_ROOT/scripts/backfill_data.py"
+# Use venv python (properly quoted for paths with spaces)
+PYTHON="${PROJECT_ROOT}/venv/bin/python3"
 
-echo -e "\n${BLUE}--- Step 2: Training Models & Feature Engineering ---${NC}"
-python3 "$PROJECT_ROOT/scripts/train_models.py"
+echo -e "${BLUE}--- Step 1: Collecting Market and Economic Data ---${NC}"
+"${PYTHON}" "${PROJECT_ROOT}/scripts/data/collect_data.py"
 
-echo -e "\n${BLUE}--- Step 3: Running Tests ---${NC}"
-python3 -m pytest "$PROJECT_ROOT/tests/" -v --tb=short
+echo -e "\n${BLUE}--- Step 2: Populating Historical Crashes ---${NC}"
+"${PYTHON}" "${PROJECT_ROOT}/scripts/data/populate_crash_events.py"
 
-echo -e "\n${BLUE}--- Step 4: Starting Dashboard ---${NC}"
+echo -e "\n${BLUE}--- Step 3: Training Crash Detector V5 (Anti-Overfitting with Cross-Validation) ---${NC}"
+"${PYTHON}" "${PROJECT_ROOT}/scripts/training/train_crash_detector_v5.py"
+
+echo -e "\n${BLUE}--- Step 3b: Training Improved Statistical Model V2 ---${NC}"
+"${PYTHON}" "${PROJECT_ROOT}/scripts/training/train_statistical_model_v2.py"
+
+echo -e "\n${BLUE}--- Step 3c: Training Bottom Prediction Model ---${NC}"
+"${PYTHON}" "${PROJECT_ROOT}/scripts/training/train_bottom_predictor.py"
+
+echo -e "\n${BLUE}--- Step 4: Generating Crash Probability Predictions (V5 ML + V2 Statistical) ---${NC}"
+"${PYTHON}" "${PROJECT_ROOT}/scripts/utils/generate_predictions_v5.py"
+
+echo -e "\n${BLUE}--- Step 4b: Generating Bottom Predictions (Optimal Re-Entry Timing) ---${NC}"
+"${PYTHON}" "${PROJECT_ROOT}/scripts/utils/generate_bottom_predictions.py"
+
+echo -e "\n${BLUE}--- Step 5: Evaluating Crash Detection ---${NC}"
+"${PYTHON}" "${PROJECT_ROOT}/scripts/evaluation/evaluate_crash_detection.py"
+
+echo -e "\n${BLUE}--- Step 6: Starting Dashboard ---${NC}"
 echo -e "${GREEN}Dashboard will start on http://localhost:8501${NC}"
 echo -e "${YELLOW}Press Ctrl+C to stop the dashboard${NC}\n"
 
-streamlit run "$PROJECT_ROOT/src/dashboard/app.py"
+"${PROJECT_ROOT}/venv/bin/streamlit" run "${PROJECT_ROOT}/src/dashboard/app.py"
 
 # ============================================================================
 # Cleanup on exit

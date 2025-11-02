@@ -60,42 +60,9 @@ class Indicator(Base):
     # Composite (1)
     lei = Column(Float)
 
-    # Alternative data sources
-    shiller_pe = Column(Float)
+    # Alternative data sources (2)
     margin_debt = Column(Float)
     put_call_ratio = Column(Float)
-
-    # Calculated Indicators (28 total) - Financial Market (8)
-    yield_spread_10y_3m = Column(Float)
-    yield_spread_10y_2y = Column(Float)
-    vix_level = Column(Float)
-    vix_change_rate = Column(Float)
-    realized_volatility = Column(Float)
-    sp500_momentum_200d = Column(Float)
-    sp500_drawdown = Column(Float)
-
-    # Credit Cycle Indicators (6)
-    debt_service_ratio = Column(Float)
-    credit_gap = Column(Float)
-    corporate_debt_growth = Column(Float)
-    household_debt_growth = Column(Float)
-    m2_growth = Column(Float)
-
-    # Valuation Indicators (4)
-    buffett_indicator = Column(Float)
-    sp500_pb_ratio = Column(Float)
-    earnings_yield_spread = Column(Float)
-
-    # Sentiment Indicators (5)
-    put_call_ratio_calc = Column(Float)  # Calculated version
-    margin_debt_growth = Column(Float)
-    market_breadth = Column(Float)
-
-    # Economic Indicators (5)
-    sahm_rule = Column(Float)
-    gdp_growth = Column(Float)
-    industrial_production_growth = Column(Float)
-    housing_starts_growth = Column(Float)
 
     # Metadata
     created_at = Column(DateTime, default=datetime.utcnow)
