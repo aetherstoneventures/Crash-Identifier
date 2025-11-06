@@ -7,6 +7,13 @@ This model predicts:
 3. Expected recovery timeline
 
 Based on historical crash patterns and recovery indicators.
+
+⚠️ IMPORTANT LIMITATIONS:
+- Trained on only 11 historical crashes (small sample size)
+- High risk of poor generalization to future crashes
+- Recovery patterns may change with market structure changes
+- Use predictions with caution and validate against current market conditions
+- Consider this a supplementary tool, not a primary trading signal
 """
 
 import sys
@@ -137,6 +144,16 @@ def train_bottom_predictor():
     logger.info("\nLoading historical crash events...")
     crashes_df = load_crash_events()
     logger.info(f"✅ Loaded {len(crashes_df)} historical crashes")
+
+    # Warn about small sample size
+    logger.warning("\n" + "=" * 80)
+    logger.warning("⚠️  WARNING: SMALL SAMPLE SIZE")
+    logger.warning("=" * 80)
+    logger.warning(f"Training on only {len(crashes_df)} historical crashes")
+    logger.warning("This is a VERY SMALL sample size for regression modeling")
+    logger.warning("High risk of poor generalization to future crashes")
+    logger.warning("Use predictions with caution and validate against current market conditions")
+    logger.warning("=" * 80)
     
     logger.info("\nLoading indicators...")
     ind_df = load_indicators()

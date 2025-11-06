@@ -108,12 +108,18 @@ def collect_data():
     logger.info("\n" + "=" * 80)
     logger.info("STEP 4: Calculating Synthetic Indicators")
     logger.info("=" * 80)
+    logger.info("⚠️  WARNING: The following indicators are SYNTHETIC PROXIES, NOT real market data:")
+    logger.info("=" * 80)
 
     # Synthetic margin debt: Use credit spread as inverse proxy
     # Margin debt increases when credit spreads are tight (easy credit)
     if 'credit_spread_bbb' in combined_df.columns:
         combined_df['margin_debt'] = 100 / (combined_df['credit_spread_bbb'] + 1)
-        logger.info("✅ Calculated margin_debt from credit_spread_bbb")
+        logger.warning("⚠️  SYNTHETIC: margin_debt = 100 / (credit_spread_bbb + 1)")
+        logger.warning("   - NOT real FINRA margin debt data")
+        logger.warning("   - Proxy based on credit spreads (inverse relationship)")
+        logger.warning("   - Real FINRA data: billions of dollars (e.g., $800B)")
+        logger.warning("   - Synthetic values: typically 49-51 (mathematical artifact)")
     else:
         combined_df['margin_debt'] = None
         logger.warning("⚠️ Cannot calculate margin_debt (missing credit_spread_bbb)")
@@ -123,12 +129,19 @@ def collect_data():
     if 'vix_close' in combined_df.columns:
         vix_change = combined_df['vix_close'].pct_change()
         combined_df['put_call_ratio'] = 1.0 + (vix_change * 0.5).clip(-0.5, 0.5)
-        logger.info("✅ Calculated put_call_ratio from vix_close")
+        logger.warning("⚠️  SYNTHETIC: put_call_ratio = 1.0 + (VIX_change × 0.5)")
+        logger.warning("   - NOT real CBOE put/call ratio data")
+        logger.warning("   - Proxy based on VIX percentage changes")
+        logger.warning("   - Real CBOE data: ranges 0.5-2.5 typically")
+        logger.warning("   - Synthetic values: cluster around 1.0 (mathematical artifact)")
     else:
         combined_df['put_call_ratio'] = None
         logger.warning("⚠️ Cannot calculate put_call_ratio (missing vix_close)")
 
-    logger.info("✅ All 20 indicators ready (18 real + 2 synthetic)")
+    logger.info("=" * 80)
+    logger.info("✅ All 20 indicators ready (18 real + 2 synthetic proxies)")
+    logger.info("   Real indicators: 16 from FRED + 2 from Yahoo Finance")
+    logger.info("   Synthetic proxies: margin_debt, put_call_ratio")
     
     # Step 5: Clean and prepare data for storage
     logger.info("\n" + "=" * 80)

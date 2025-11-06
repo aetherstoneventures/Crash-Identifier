@@ -22,8 +22,8 @@ import pickle
 
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
-from sklearn.model_selection import StratifiedKFold, cross_validate, learning_curve
-from sklearn.metrics import (classification_report, confusion_matrix, roc_auc_score, 
+from sklearn.model_selection import TimeSeriesSplit, cross_validate, learning_curve
+from sklearn.metrics import (classification_report, confusion_matrix, roc_auc_score,
                              recall_score, precision_score, f1_score)
 import warnings
 warnings.filterwarnings('ignore')
@@ -154,12 +154,16 @@ def train_crash_detector_v5():
     X_train_scaled = scaler.fit_transform(X_train)
     X_test_scaled = scaler.transform(X_test)
     
-    # K-Fold Cross-Validation
+    # Time-Series Cross-Validation (prevents temporal leakage)
     logger.info("\n" + "=" * 80)
-    logger.info("K-FOLD CROSS-VALIDATION (5 folds)")
+    logger.info("TIME-SERIES CROSS-VALIDATION (5 folds - chronological)")
     logger.info("=" * 80)
-    
-    skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+    logger.info("⚠️  IMPORTANT: Using TimeSeriesSplit to prevent temporal leakage")
+    logger.info("   - Trains on past data, tests on future data (chronologically)")
+    logger.info("   - Prevents model from seeing future to predict past")
+    logger.info("=" * 80)
+
+    tscv = TimeSeriesSplit(n_splits=5)
     
     # Gradient Boosting with regularization
     logger.info("\nTraining Gradient Boosting with regularization...")
@@ -174,7 +178,7 @@ def train_crash_detector_v5():
     )
     
     gb_cv_scores = cross_validate(
-        gb, X_train_scaled, y_train, cv=skf,
+        gb, X_train_scaled, y_train, cv=tscv,
         scoring=['roc_auc', 'recall', 'precision', 'f1'],
         return_train_score=True
     )
@@ -201,7 +205,7 @@ def train_crash_detector_v5():
     )
     
     rf_cv_scores = cross_validate(
-        rf, X_train_scaled, y_train, cv=skf,
+        rf, X_train_scaled, y_train, cv=tscv,
         scoring=['roc_auc', 'recall', 'precision', 'f1'],
         return_train_score=True
     )

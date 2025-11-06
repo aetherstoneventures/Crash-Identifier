@@ -54,6 +54,9 @@ data/logs/*
 *.sqlite
 *.sqlite3
 
+# External data fallbacks
+data/external/*
+
 # Notebooks
 .ipynb_checkpoints/
 *.ipynb

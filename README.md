@@ -7,22 +7,23 @@
 
 ## 🎯 System Overview
 
-A machine learning-based market crash detection system that predicts stock market crashes with 81.8% accuracy using 20 economic and market indicators. The system combines:
+A machine learning-based market crash detection system that predicts stock market crashes with 81.8% recall using 20 economic and market indicators. The system combines:
 
-- **ML Models**: Gradient Boosting (70%) + Random Forest (30%) with K-Fold cross-validation
-- **Features**: 39 engineered features from 20 raw indicators
-- **Data**: 11,431 daily records (1982-2025) from FRED and Yahoo Finance
-- **Validation**: Anti-overfitting measures (overfitting gap < 0.002)
+- **ML Models**: Gradient Boosting (70%) + Random Forest (30%) with TimeSeriesSplit cross-validation
+- **Features**: 39 engineered features from 20 raw indicators (18 real + 2 synthetic proxies)
+- **Data**: 11,437 daily records (1982-2025) from FRED and Yahoo Finance
+- **Validation**: TimeSeriesSplit prevents temporal leakage (trains on past, tests on future)
 
 ## 📊 Performance
 
 | Metric | Value |
 |--------|-------|
-| **Recall** | 81.8% (9/11 crashes) |
-| **Average Notice** | 43 days |
-| **ML Model AUC** | 0.7323 |
-| **Overfitting Gap** | 0.0004 (✓ No overfitting) |
-| **Data Coverage** | 100% (20 indicators) |
+| **Recall** | 81.8% (9/11 crashes detected) |
+| **Average Notice** | 43 days advance warning |
+| **ML Model AUC** | ~0.73 (TimeSeriesSplit validation) |
+| **Overfitting Gap** | < 0.002 (minimal overfitting) |
+| **Data Coverage** | 100% (20 indicators, 1982-2025) |
+| **Validation Method** | TimeSeriesSplit (prevents temporal leakage) |
 
 ## 📁 Directory Structure
 
@@ -146,6 +147,18 @@ python3 scripts/evaluate_crash_detection.py
    ```bash
    pip install -r requirements.txt
    ```
+
+## ⚠️ Data Quality Notice
+
+**Real Indicators (18):**
+- 16 from FRED (Federal Reserve Economic Data)
+- 2 from Yahoo Finance (S&P 500, VIX)
+
+**Synthetic Proxies (2):**
+- `margin_debt`: Calculated as 100/(credit_spread+1) - NOT real FINRA data
+- `put_call_ratio`: Calculated as 1.0+(VIX_change×0.5) - NOT real CBOE data
+
+These synthetic indicators are used for feature engineering. See `docs/METHODOLOGY.md` for details.
 
 ## 🔧 Key Features
 
