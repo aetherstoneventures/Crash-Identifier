@@ -98,12 +98,14 @@ class XGBoostCrashModel(BaseCrashModel):
         }
         
         # Train model
-        model = xgb.XGBClassifier(**params)
+        model = xgb.XGBClassifier(
+            **params,
+            early_stopping_rounds=XGBOOST_EARLY_STOPPING_ROUNDS
+        )
         model.fit(
             X_train,
             y_train,
             eval_set=[(X_val, y_val)],
-            early_stopping_rounds=XGBOOST_EARLY_STOPPING_ROUNDS,
             verbose=False
         )
         
@@ -203,15 +205,15 @@ class XGBoostCrashModel(BaseCrashModel):
             }
         
         # Train final model
-        self.model = xgb.XGBClassifier(**self.best_params)
-        
         eval_set = [(X_val.values, y_val.values)] if X_val is not None and y_val is not None else None
+        if eval_set:
+            self.best_params['early_stopping_rounds'] = XGBOOST_EARLY_STOPPING_ROUNDS
+        self.model = xgb.XGBClassifier(**self.best_params)
         
         self.model.fit(
             X_train.values,
             y_train.values,
             eval_set=eval_set,
-            early_stopping_rounds=XGBOOST_EARLY_STOPPING_ROUNDS if eval_set else None,
             verbose=True
         )
         
