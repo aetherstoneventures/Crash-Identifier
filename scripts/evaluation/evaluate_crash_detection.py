@@ -9,7 +9,8 @@ Metrics:
 """
 
 import sys
-sys.path.insert(0, '/Users/pouyamahdavipourvahdati/Desktop/General/Projects/01_Project_Stock Automation/Project 2025_Stock Evaluation/Hidden Gem Stock/Augment Code Crash Analyzer/market-crash-predictor')
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
 import pandas as pd
 import numpy as np

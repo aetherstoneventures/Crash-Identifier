@@ -188,11 +188,11 @@ echo -e "${BLUE}--- Step 1: Collecting Market and Economic Data ---${NC}"
 echo -e "\n${BLUE}--- Step 2: Populating Historical Crashes ---${NC}"
 "${PYTHON}" "${PROJECT_ROOT}/scripts/data/populate_crash_events.py"
 
-echo -e "\n${BLUE}--- Step 3: Training Crash Detector V5 (Anti-Overfitting with Cross-Validation) ---${NC}"
-"${PYTHON}" "${PROJECT_ROOT}/scripts/training/train_crash_detector_v5.py"
+echo -e "\n${BLUE}--- Step 3: Training Advanced Models (LSTM + XGBoost + Statistical V3) ---${NC}"
+"${PYTHON}" "${PROJECT_ROOT}/scripts/training/train_advanced_models.py"
 
-echo -e "\n${BLUE}--- Step 3b: Training Improved Statistical Model V2 ---${NC}"
-"${PYTHON}" "${PROJECT_ROOT}/scripts/training/train_statistical_model_v2.py"
+echo -e "\n${BLUE}--- Step 3b: Training Statistical Model V3 (Standalone) ---${NC}"
+"${PYTHON}" "${PROJECT_ROOT}/scripts/training/train_statistical_model_v3.py"
 
 echo -e "\n${BLUE}--- Step 3c: Training Bottom Prediction Model ---${NC}"
 "${PYTHON}" "${PROJECT_ROOT}/scripts/training/train_bottom_predictor.py"
