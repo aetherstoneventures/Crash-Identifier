@@ -114,7 +114,8 @@ def create_labels(indicators_df: pd.DataFrame, crash_events_df: pd.DataFrame, lo
     logger.info(f"Creating crash labels with {lookforward}-day lookforward...")
     
     labeler = CrashLabeler(lookforward_window=lookforward)
-    labels = labeler.label(indicators_df['sp500_close'])
+    labels = pd.Series(labeler.generate_labels(indicators_df['sp500_close']),
+                       index=indicators_df.index)
     
     logger.info(f"Created labels: {labels.sum()} positive samples ({labels.mean()*100:.2f}%)")
     
@@ -140,10 +141,10 @@ def train_models():
     # Load data
     indicators_df, crash_events_df = load_data()
     
-    # Create features
+    # Create features (fit on full data before split, then re-fit on train only)
     logger.info("Generating features...")
     feature_pipeline = FeaturePipeline()
-    features_df = feature_pipeline.generate_features(indicators_df)
+    features_df = feature_pipeline.fit_transform(indicators_df)
     
     # Create labels
     labels = create_labels(indicators_df, crash_events_df, lookforward=60)
