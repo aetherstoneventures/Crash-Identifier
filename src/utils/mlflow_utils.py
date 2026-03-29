@@ -111,11 +111,14 @@ class MLflowModelManager:
             
             # Log model based on type
             if model_type == "sklearn":
-                mlflow.sklearn.log_model(model, "model", registered_model_name=model_name if register else None)
+                inner = model.model if hasattr(model, 'model') else model
+                mlflow.sklearn.log_model(inner, "model", registered_model_name=model_name if register else None)
             elif model_type == "keras":
-                mlflow.keras.log_model(model, "model", registered_model_name=model_name if register else None)
+                inner = model.model if hasattr(model, 'model') else model
+                mlflow.keras.log_model(inner, "model", registered_model_name=model_name if register else None)
             elif model_type == "pytorch":
-                mlflow.pytorch.log_model(model, "model", registered_model_name=model_name if register else None)
+                inner = model.model if hasattr(model, 'model') else model
+                mlflow.pytorch.log_model(inner, "model", registered_model_name=model_name if register else None)
             else:
                 # Generic pickle logging
                 model_path = MODELS_DIR / f"{model_name}.pkl"
