@@ -226,6 +226,42 @@ def _evaluate_fold(
     return metrics
 
 
+def calculate_metrics(y_true: np.ndarray, y_proba: np.ndarray) -> Dict:
+    """Calculate classification metrics from raw arrays.
+
+    Args:
+        y_true: Ground truth binary labels.
+        y_proba: Predicted probabilities (0-1).
+
+    Returns:
+        Dict with accuracy, precision, recall, f1, and auc.
+    """
+    y_true = np.asarray(y_true)
+    y_proba = np.asarray(y_proba)
+
+    # Handle NaN in probabilities (e.g. LSTM padding)
+    valid = ~np.isnan(y_proba)
+    if not valid.all():
+        y_true = y_true[valid]
+        y_proba = y_proba[valid]
+
+    y_pred = (y_proba >= 0.5).astype(int)
+
+    metrics = {
+        'accuracy': float(accuracy_score(y_true, y_pred)),
+        'precision': float(precision_score(y_true, y_pred, zero_division=0)),
+        'recall': float(recall_score(y_true, y_pred, zero_division=0)),
+        'f1': float(f1_score(y_true, y_pred, zero_division=0)),
+    }
+
+    if len(np.unique(y_true)) >= 2:
+        metrics['auc'] = float(roc_auc_score(y_true, y_proba))
+    else:
+        metrics['auc'] = float('nan')
+
+    return metrics
+
+
 def _aggregate_metrics(fold_metrics: List[Dict]) -> Dict:
     """Compute mean and std of metrics across folds."""
     metric_keys = ['accuracy', 'precision', 'recall', 'f1', 'auc']
