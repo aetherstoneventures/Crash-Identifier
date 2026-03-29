@@ -113,7 +113,10 @@ def collect_data():
         # Convert to Series with **date-only** index for merging
         sp500_series = sp500_df.set_index('date')['close']
         # Ensure index is plain date (no timezone / time) to match FRED
-        sp500_series.index = pd.to_datetime(sp500_series.index).tz_convert(None).date
+        dt_index = pd.to_datetime(sp500_series.index)
+        if dt_index.tz is not None:
+            dt_index = dt_index.tz_convert(None)
+        sp500_series.index = dt_index.date
         sp500_series.name = 'sp500_close'
 
         # Merge with combined_df (also ensure its index is date-only)
