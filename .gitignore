@@ -50,9 +50,19 @@ data/raw/*
 data/processed/*
 data/models/*
 data/logs/*
+data/cache/*
+data/backups/*
+data/mlflow/*
 *.db
 *.sqlite
 *.sqlite3
+
+# Trained model artifacts
+models/
+catboost_info/
+*.cbm
+*.pkl
+mlruns/
 
 # External data fallbacks
 data/external/*
@@ -72,4 +82,13 @@ logs/
 # Temporary files
 *.tmp
 *.temp
+
+# Keep directory structure with .gitkeep
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!data/models/.gitkeep
+!data/logs/.gitkeep
+!data/cache/.gitkeep
+!data/backups/.gitkeep
+!data/mlflow/.gitkeep
 
