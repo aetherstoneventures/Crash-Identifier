@@ -1,7 +1,7 @@
 # Market Crash Predictor - Advanced ML System v2.0
 
-**Status**: ✅ **PRODUCTION READY** (v2.0 - Advanced ML with MLflow Versioning)
-**Last Updated**: November 7, 2025
+**Status**: v2.1 — Deep audit fixes applied (see DEEP_AUDIT_REPORT.md)
+**Last Updated**: June 2025
 
 ## 🎯 System Overview
 
@@ -10,12 +10,12 @@ An advanced machine learning system for market crash prediction using state-of-t
 - **Advanced ML Models**:
   - LSTM with Bidirectional layers and Attention mechanism
   - XGBoost with Optuna hyperparameter optimization
-  - Improved Statistical model with multi-factor risk scoring
+  - Regime-aware Statistical Model V3 with multi-factor risk scoring
   - All models with anti-overfitting measures
 
 - **MLflow Integration**: Complete model versioning, tracking, and comparison
 - **Production Features**: PostgreSQL support, FastAPI REST API, Prometheus monitoring, automated backups
-- **Data Sources**: FRED API (16 indicators) + Yahoo Finance + FREE FINRA margin debt + FREE put/call ratio
+- **Data Sources**: FRED API (16 indicators) + Yahoo Finance (S&P 500, VIX) + optional FINRA margin debt + optional CBOE put/call ratio
 - **Validation**: Walk-forward validation for time-series integrity
 
 ## 🆕 What's New in v2.0
@@ -23,7 +23,7 @@ An advanced machine learning system for market crash prediction using state-of-t
 ### Advanced ML Models
 - ✅ **LSTM with Attention**: Bidirectional LSTM with attention mechanism for interpretability
 - ✅ **XGBoost with Optuna**: Automated hyperparameter optimization with SHAP values
-- ✅ **Improved Statistical Model**: Multi-factor risk scoring with dynamic threshold calibration
+- ✅ **Statistical Model V3**: Regime-aware multi-factor risk scoring with dynamic threshold calibration
 - ✅ **Advanced Bottom Predictor**: Deep learning LSTM for market bottom prediction
 
 ### Production Infrastructure
@@ -73,9 +73,11 @@ crash-identifier/
 │   ├── feature_engineering/     # Feature pipeline
 │   ├── models/
 │   │   ├── crash_prediction/
+│   │   │   ├── base_model.py                # Abstract base class
+│   │   │   ├── crash_labeler.py             # Rolling-peak drawdown labeling
 │   │   │   ├── lstm_crash_model.py          # LSTM with attention
 │   │   │   ├── xgboost_crash_model.py       # XGBoost with Optuna
-│   │   │   └── improved_statistical_model.py # Multi-factor statistical
+│   │   │   └── statistical_model_v3.py      # Regime-aware statistical model
 │   │   └── bottom_prediction/
 │   │       └── advanced_lstm_bottom_model.py # Advanced bottom predictor
 │   ├── utils/
@@ -140,7 +142,7 @@ python scripts/training/train_advanced_models.py
 This will train:
 - LSTM with attention mechanism
 - XGBoost with Optuna optimization
-- Improved statistical model
+- Statistical Model V3 (regime-aware)
 
 All models are tracked in MLflow.
 
@@ -172,7 +174,7 @@ Dashboard at: http://localhost:8501
 |-------|------|--------------|------------------|
 | **LSTM with Attention** | Deep Learning | Bidirectional LSTM, Attention mechanism, Sequence modeling | Dropout, L2 regularization, Early stopping |
 | **XGBoost with Optuna** | Gradient Boosting | Automated hyperparameter tuning, SHAP values | Walk-forward validation, Class imbalance handling |
-| **Improved Statistical** | Rule-Based | Multi-factor risk scoring, Dynamic thresholds | Threshold calibration on historical data |
+| **Statistical V3** | Rule-Based | Multi-factor risk scoring, Regime awareness, Dynamic thresholds | Threshold calibration on historical data |
 
 ## 🔧 Configuration
 
@@ -327,9 +329,8 @@ Full API documentation at: http://localhost:8000/docs
 | **Yahoo Finance** | 2 | Real | S&P 500, VIX |
 | **CBOE** | 1 | Optional | Real Put/Call Ratio (requires API key) |
 | **FINRA** | 1 | Optional | Real Margin Debt (requires API key) |
-| **Synthetic** | 2 | Proxy | Used when real data unavailable |
 
-**Synthetic Data Warning**: System automatically warns when using synthetic proxies. Set `CBOE_API_KEY` and `FINRA_API_KEY` in `.env` for real data.
+**Note**: No synthetic/proxy indicators are used. All features are derived from real data sources. Optional CBOE/FINRA data is included only when API keys are configured.
 
 ## 🔄 Model Versioning with MLflow
 
@@ -375,7 +376,7 @@ python -c "from src.utils.mlflow_utils import MLflowModelManager; \
 ---
 
 **System Status**: ✅ Production Ready v2.0
-**Last Updated**: November 7, 2025
-**Models**: LSTM + XGBoost + Statistical (all with anti-overfitting)
+**Last Updated**: June 2025
+**Models**: LSTM + XGBoost + Statistical V3 (all with anti-overfitting)
 **Infrastructure**: MLflow + FastAPI + PostgreSQL + Prometheus
 

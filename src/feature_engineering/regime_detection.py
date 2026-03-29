@@ -103,54 +103,74 @@ class BryBoschanDetector:
         troughs: List[int]
     ) -> Tuple[List[int], List[int]]:
         """
-        Apply duration and amplitude filters.
+        Apply Bry-Boschan alternation, duration, and amplitude filters.
+
+        The key step is enforcing strict peak-trough alternation: a peak must
+        follow a trough and vice versa. When two consecutive peaks (or troughs)
+        occur, we keep the more extreme one.
 
         Args:
             series: Time series
-            peaks: Peak indices
-            troughs: Trough indices
+            peaks: Peak indices (positions in series)
+            troughs: Trough indices (positions in series)
 
         Returns:
-            Filtered (peaks, troughs)
+            Filtered (peaks, troughs) with enforced alternation
         """
-        filtered_peaks = []
-        filtered_troughs = []
+        # Step 1: Merge peaks and troughs into a single sorted list of turning points
+        turning_points = [(idx, 'peak') for idx in peaks] + [(idx, 'trough') for idx in troughs]
+        turning_points.sort(key=lambda x: x[0])
 
-        # Filter peaks
-        for i, peak in enumerate(peaks):
-            # Check minimum duration from previous trough
-            if i == 0:
-                prev_trough_idx = 0
+        if not turning_points:
+            return [], []
+
+        # Step 2: Enforce alternation — resolve consecutive same-type extrema
+        alternating = [turning_points[0]]
+        for idx, tp_type in turning_points[1:]:
+            if tp_type == alternating[-1][1]:
+                # Same type as previous — keep the more extreme one
+                prev_idx, prev_type = alternating[-1]
+                if tp_type == 'peak':
+                    if series.iloc[idx] > series.iloc[prev_idx]:
+                        alternating[-1] = (idx, tp_type)
+                else:  # trough
+                    if series.iloc[idx] < series.iloc[prev_idx]:
+                        alternating[-1] = (idx, tp_type)
             else:
-                if i - 1 < len(troughs):
-                    prev_trough_idx = troughs[i - 1]
-                else:
-                    continue
+                alternating.append((idx, tp_type))
 
-            if i == 0 or (peak - prev_trough_idx) >= self.min_duration:
-                # Check amplitude
-                prev_trough = series.iloc[prev_trough_idx]
-                amplitude = (series.iloc[peak] - prev_trough) / abs(prev_trough) * 100
-                if amplitude >= self.min_amplitude:
-                    filtered_peaks.append(peak)
-
-        # Filter troughs
-        for i, trough in enumerate(troughs):
-            # Check minimum duration from previous peak
+        # Step 3: Apply duration and amplitude filters
+        filtered = []
+        for i, (idx, tp_type) in enumerate(alternating):
             if i == 0:
-                prev_peak_idx = 0
-            else:
-                if i - 1 < len(peaks):
-                    prev_peak_idx = peaks[i - 1]
+                # First turning point — accept if amplitude from series start is sufficient
+                if tp_type == 'peak':
+                    amplitude = (series.iloc[idx] - series.iloc[0]) / abs(series.iloc[0]) * 100
                 else:
-                    continue
-
-            if i == 0 or (trough - prev_peak_idx) >= self.min_duration:
-                # Check amplitude
-                prev_peak = series.iloc[prev_peak_idx]
-                amplitude = (prev_peak - series.iloc[trough]) / abs(prev_peak) * 100
+                    amplitude = (series.iloc[0] - series.iloc[idx]) / abs(series.iloc[0]) * 100
                 if amplitude >= self.min_amplitude:
-                    filtered_troughs.append(trough)
+                    filtered.append((idx, tp_type))
+                continue
+
+            # Find the previous accepted turning point
+            prev_idx = filtered[-1][0] if filtered else 0
+
+            # Duration check
+            if (idx - prev_idx) < self.min_duration and filtered:
+                continue
+
+            # Amplitude check relative to previous turning point
+            if tp_type == 'peak':
+                amplitude = (series.iloc[idx] - series.iloc[prev_idx]) / abs(series.iloc[prev_idx]) * 100
+            else:
+                amplitude = (series.iloc[prev_idx] - series.iloc[idx]) / abs(series.iloc[prev_idx]) * 100
+
+            if amplitude >= self.min_amplitude:
+                filtered.append((idx, tp_type))
+
+        # Step 4: Separate back into peaks and troughs
+        filtered_peaks = [idx for idx, tp_type in filtered if tp_type == 'peak']
+        filtered_troughs = [idx for idx, tp_type in filtered if tp_type == 'trough']
 
         return filtered_peaks, filtered_troughs
 

@@ -50,7 +50,7 @@ class XGBoostCrashModel(BaseCrashModel):
             n_trials: Number of Optuna trials
             timeout: Timeout for Optuna optimization (seconds)
         """
-        super().__init__()
+        super().__init__(name="XGBoost")
         self.optimize_hyperparams = optimize_hyperparams
         self.n_trials = n_trials
         self.timeout = timeout
@@ -264,13 +264,25 @@ class XGBoostCrashModel(BaseCrashModel):
         }
     
     def predict(self, X: pd.DataFrame) -> np.ndarray:
+        """Make binary crash predictions (0 or 1).
+        
+        Args:
+            X: Features to predict on
+            
+        Returns:
+            Binary predictions array
+        """
+        proba = self.predict_proba(X)
+        return (proba >= 0.5).astype(int)
+
+    def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
         """Predict crash probabilities.
         
         Args:
             X: Features to predict on
             
         Returns:
-            Array of crash probabilities
+            Array of crash probabilities (0-1)
         """
         if self.model is None:
             raise ValueError("Model not trained. Call train() first.")

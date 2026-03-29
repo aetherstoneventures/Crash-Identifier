@@ -57,7 +57,7 @@ class LSTMCrashModel(BaseCrashModel):
             l2_reg: L2 regularization factor
             use_attention: Whether to use attention mechanism
         """
-        super().__init__()
+        super().__init__(name="LSTM")
         self.sequence_length = sequence_length
         self.units = units
         self.num_layers = num_layers
@@ -274,13 +274,26 @@ class LSTMCrashModel(BaseCrashModel):
         }
     
     def predict(self, X: pd.DataFrame) -> np.ndarray:
+        """Make binary crash predictions (0 or 1).
+        
+        Args:
+            X: Features to predict on
+            
+        Returns:
+            Binary predictions array
+        """
+        proba = self.predict_proba(X)
+        return (proba >= 0.5).astype(int)
+
+    def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
         """Predict crash probabilities.
         
         Args:
             X: Features to predict on
             
         Returns:
-            Array of crash probabilities
+            Array of crash probabilities (0-1). First `sequence_length`
+            values use NaN (not zero) to indicate insufficient history.
         """
         if self.model is None:
             raise ValueError("Model not trained. Call train() first.")
@@ -294,8 +307,8 @@ class LSTMCrashModel(BaseCrashModel):
         # Predict
         predictions = self.model.predict(X_seq, verbose=0)
         
-        # Pad predictions to match input length
-        padded_predictions = np.zeros(len(X))
+        # Pad with NaN (not zero) for dates without enough history
+        padded_predictions = np.full(len(X), np.nan)
         padded_predictions[self.sequence_length:] = predictions.flatten()
         
         return padded_predictions

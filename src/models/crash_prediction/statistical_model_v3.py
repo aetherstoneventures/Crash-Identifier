@@ -169,10 +169,10 @@ class StatisticalModelV3(BaseCrashModel):
             return
 
         # Calibrate VIX thresholds
-        if 'vix_close' in crash_data.columns:
-            crash_vix_median = crash_data['vix_close'].median()
-            crash_vix_75th = crash_data['vix_close'].quantile(0.75)
-            normal_vix_median = normal_data['vix_close'].median()
+        if 'vix_level' in crash_data.columns:
+            crash_vix_median = crash_data['vix_level'].median()
+            crash_vix_75th = crash_data['vix_level'].quantile(0.75)
+            normal_vix_median = normal_data['vix_level'].median()
 
             self.thresholds['vix_normal'] = max(20.0, normal_vix_median * 1.2)
             self.thresholds['vix_high'] = max(30.0, crash_vix_median * 0.9)
@@ -224,7 +224,7 @@ class StatisticalModelV3(BaseCrashModel):
 
     def _detect_volatility_regime(self, row: pd.Series) -> str:
         """Detect current volatility regime based on VIX."""
-        vix = row.get('vix_close', 20.0)
+        vix = row.get('vix_level', 20.0)
 
         if pd.isna(vix):
             return 'normal'
@@ -314,16 +314,16 @@ class StatisticalModelV3(BaseCrashModel):
         score = 0.0
 
         # 10Y-2Y spread
-        if 'yield_10y_2y' in row and pd.notna(row['yield_10y_2y']):
-            spread_2y = row['yield_10y_2y']
+        if 'yield_spread_10y_2y' in row and pd.notna(row['yield_spread_10y_2y']):
+            spread_2y = row['yield_spread_10y_2y']
             if spread_2y < self.thresholds['yield_10y_2y_deep_inversion']:
                 score += 0.7  # Deep inversion - very strong signal
             elif spread_2y < self.thresholds['yield_10y_2y_inversion']:
                 score += 0.5  # Inversion - strong signal
 
         # 10Y-3M spread
-        if 'yield_10y_3m' in row and pd.notna(row['yield_10y_3m']):
-            spread_3m = row['yield_10y_3m']
+        if 'yield_spread_10y_3m' in row and pd.notna(row['yield_spread_10y_3m']):
+            spread_3m = row['yield_spread_10y_3m']
             if spread_3m < self.thresholds['yield_10y_3m_inversion']:
                 score += 0.5  # Additional confirmation
 
@@ -334,8 +334,8 @@ class StatisticalModelV3(BaseCrashModel):
         score = 0.0
 
         # VIX level
-        if 'vix_close' in row and pd.notna(row['vix_close']):
-            vix = row['vix_close']
+        if 'vix_level' in row and pd.notna(row['vix_level']):
+            vix = row['vix_level']
             if vix > self.thresholds['vix_extreme']:
                 score += 0.8
             elif vix > self.thresholds['vix_high']:
@@ -343,15 +343,10 @@ class StatisticalModelV3(BaseCrashModel):
             elif vix > self.thresholds['vix_normal']:
                 score += 0.3
 
-        # VIX spike (1-day)
-        if 'vix_change_pct' in row and pd.notna(row['vix_change_pct']):
-            if row['vix_change_pct'] > self.thresholds['vix_spike_1d']:
-                score += 0.3
-
-        # VIX spike (5-day)
-        if 'vix_change_5d' in row and pd.notna(row['vix_change_5d']):
-            if row['vix_change_5d'] > self.thresholds['vix_spike_5d']:
-                score += 0.4
+        # VIX change (20-day)
+        if 'vix_change_20d' in row and pd.notna(row['vix_change_20d']):
+            if row['vix_change_20d'] > self.thresholds['vix_spike_5d']:
+                score += 0.5  # Large VIX increase over 20 days
 
         return min(score, 1.0)
 
@@ -369,9 +364,9 @@ class StatisticalModelV3(BaseCrashModel):
             elif spread > self.thresholds['credit_spread_elevated']:
                 score += 0.3
 
-        # Credit spread widening
-        if 'credit_spread_change' in row and pd.notna(row['credit_spread_change']):
-            if row['credit_spread_change'] > self.thresholds['credit_spread_spike']:
+        # Credit spread widening (20-day change)
+        if 'credit_spread_change_20d' in row and pd.notna(row['credit_spread_change_20d']):
+            if row['credit_spread_change_20d'] > self.thresholds['credit_spread_spike']:
                 score += 0.4
 
         return min(score, 1.0)
@@ -388,14 +383,14 @@ class StatisticalModelV3(BaseCrashModel):
             elif unemp > self.thresholds['unemployment_high']:
                 score += 0.3
 
-        # Unemployment rising
-        if 'unemployment_change' in row and pd.notna(row['unemployment_change']):
-            if row['unemployment_change'] > self.thresholds['unemployment_rising_threshold']:
+        # Unemployment rising (Sahm Rule: 3-mo avg minus 12-mo low)
+        if 'sahm_rule' in row and pd.notna(row['sahm_rule']):
+            if row['sahm_rule'] > self.thresholds['unemployment_rising_threshold']:
                 score += 0.3
 
-        # Industrial production declining
-        if 'industrial_production_change' in row and pd.notna(row['industrial_production_change']):
-            if row['industrial_production_change'] < self.thresholds['industrial_prod_decline']:
+        # Industrial production declining (YoY growth)
+        if 'industrial_prod_growth_yoy' in row and pd.notna(row['industrial_prod_growth_yoy']):
+            if row['industrial_prod_growth_yoy'] < self.thresholds['industrial_prod_decline']:
                 score += 0.3
 
         return min(score, 1.0)

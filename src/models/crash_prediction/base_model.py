@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 class BaseCrashModel(ABC):
     """Abstract base class for crash prediction models."""
 
-    def __init__(self, name: str):
+    def __init__(self, name: str = "BaseCrashModel"):
         """
         Initialize base model.
 

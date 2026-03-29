@@ -29,7 +29,8 @@ from src.utils.walk_forward_validation import WalkForwardValidator, calculate_me
 from src.feature_engineering.feature_pipeline import FeaturePipeline
 from src.models.crash_prediction.lstm_crash_model import LSTMCrashModel
 from src.models.crash_prediction.xgboost_crash_model import XGBoostCrashModel
-from src.models.crash_prediction.improved_statistical_model import ImprovedStatisticalModel
+from src.models.crash_prediction.statistical_model_v3 import StatisticalModelV3
+from src.models.crash_prediction.crash_labeler import CrashLabeler
 
 # Setup logging
 logger = setup_logger(__name__)
@@ -100,11 +101,11 @@ def load_data() -> tuple:
 
 
 def create_labels(indicators_df: pd.DataFrame, crash_events_df: pd.DataFrame, lookforward: int = 60) -> pd.Series:
-    """Create crash labels with lookforward window.
+    """Create crash labels using CrashLabeler (rolling-peak drawdown method).
     
     Args:
-        indicators_df: DataFrame with indicators
-        crash_events_df: DataFrame with crash events
+        indicators_df: DataFrame with indicators (must have sp500_close column)
+        crash_events_df: DataFrame with crash events (unused — labels derived from price)
         lookforward: Days to look forward for crash prediction
         
     Returns:
@@ -112,18 +113,8 @@ def create_labels(indicators_df: pd.DataFrame, crash_events_df: pd.DataFrame, lo
     """
     logger.info(f"Creating crash labels with {lookforward}-day lookforward...")
     
-    labels = pd.Series(0, index=indicators_df.index)
-    
-    for _, crash in crash_events_df.iterrows():
-        crash_start = crash['start_date']
-        
-        # Mark dates within lookforward window before crash as positive
-        for i, row in indicators_df.iterrows():
-            date = row['date']
-            days_to_crash = (crash_start - date).days
-            
-            if 0 <= days_to_crash <= lookforward:
-                labels.iloc[i] = 1
+    labeler = CrashLabeler(lookforward_window=lookforward)
+    labels = labeler.label(indicators_df['sp500_close'])
     
     logger.info(f"Created labels: {labels.sum()} positive samples ({labels.mean()*100:.2f}%)")
     
@@ -241,10 +232,10 @@ def train_models():
     # 3. TRAIN IMPROVED STATISTICAL MODEL
     # ========================================================================
     logger.info("\n" + "=" * 80)
-    logger.info("Training Improved Statistical Model")
+    logger.info("Training Statistical Model V3")
     logger.info("=" * 80)
     
-    stat_model = ImprovedStatisticalModel()
+    stat_model = StatisticalModelV3()
     stat_results = stat_model.train(X_train, y_train, X_val, y_val)
     
     # Evaluate
