@@ -111,6 +111,8 @@ class XGBoostCrashModel(BaseCrashModel):
         
         # Evaluate
         y_pred_proba = model.predict_proba(X_val)[:, 1]
+        if len(np.unique(y_val)) < 2:
+            return 0.5  # No discrimination possible with single class
         auc = roc_auc_score(y_val, y_pred_proba)
         
         return auc
@@ -238,8 +240,13 @@ class XGBoostCrashModel(BaseCrashModel):
         y_train_pred = self.model.predict(X_train.values)
         y_train_proba = self.model.predict_proba(X_train.values)[:, 1]
         
+        def _safe_auc(y_true, y_score):
+            if len(np.unique(y_true)) < 2:
+                return float('nan')
+            return roc_auc_score(y_true, y_score)
+        
         metrics = {
-            'train_auc': roc_auc_score(y_train, y_train_proba),
+            'train_auc': _safe_auc(y_train, y_train_proba),
             'train_precision': precision_score(y_train, y_train_pred, zero_division=0),
             'train_recall': recall_score(y_train, y_train_pred, zero_division=0),
             'train_f1': f1_score(y_train, y_train_pred, zero_division=0)
@@ -250,7 +257,7 @@ class XGBoostCrashModel(BaseCrashModel):
             y_val_proba = self.model.predict_proba(X_val.values)[:, 1]
             
             metrics.update({
-                'val_auc': roc_auc_score(y_val, y_val_proba),
+                'val_auc': _safe_auc(y_val, y_val_proba),
                 'val_precision': precision_score(y_val, y_val_pred, zero_division=0),
                 'val_recall': recall_score(y_val, y_val_pred, zero_division=0),
                 'val_f1': f1_score(y_val, y_val_pred, zero_division=0)

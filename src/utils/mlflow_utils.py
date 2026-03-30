@@ -106,8 +106,10 @@ class MLflowModelManager:
             # Log parameters
             mlflow.log_params(params)
             
-            # Log metrics
-            mlflow.log_metrics(metrics)
+            # Log metrics (filter out NaN values which MLflow rejects)
+            clean_metrics = {k: v for k, v in metrics.items()
+                            if v is not None and not (isinstance(v, float) and (v != v))}
+            mlflow.log_metrics(clean_metrics)
             
             # Log model based on type
             if model_type == "sklearn":

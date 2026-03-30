@@ -148,8 +148,8 @@ def train_statistical_model_v3():
     logger.info("=" * 80)
     
     # AUC scores
-    train_auc = roc_auc_score(y_train, train_proba)
-    test_auc = roc_auc_score(y_test, test_proba)
+    train_auc = roc_auc_score(y_train, train_proba) if len(np.unique(y_train)) >= 2 else float('nan')
+    test_auc = roc_auc_score(y_test, test_proba) if len(np.unique(y_test)) >= 2 else float('nan')
     
     logger.info(f"\nAUC Scores:")
     logger.info(f"  Train AUC: {train_auc:.4f}")
