@@ -15,13 +15,11 @@ class BottomPredictionsPage:
     def load_predictions() -> List:
         """Load predictions from database."""
         db = DatabaseManager()
-        session = db.get_session()
-        try:
+        with db.get_session() as session:
             predictions = session.query(Prediction).order_by(
                 Prediction.prediction_date.desc()
             ).limit(100).all()
-        finally:
-            session.close()
+            session.expunge_all()
         return predictions
     
     @staticmethod
@@ -60,9 +58,15 @@ class BottomPredictionsPage:
             # Convert to DataFrame
             pred_data = []
             for p in predictions:
+                # Calculate days to bottom from dates
+                if p.bottom_prediction_date and p.prediction_date:
+                    dtb = (p.bottom_prediction_date - p.prediction_date).days
+                else:
+                    dtb = None
                 pred_data.append({
                     'prediction_date': p.prediction_date,
-                    'days_to_bottom': p.bottom_prediction_date,
+                    'days_to_bottom': dtb,
+                    'bottom_date': p.bottom_prediction_date,
                     'recovery_date': p.recovery_prediction_date,
                     'model_version': p.model_version
                 })
@@ -73,34 +77,36 @@ class BottomPredictionsPage:
             st.subheader("Prediction History")
             st.dataframe(pred_df, use_container_width=True)
             
-            # Plot
-            st.subheader("Days to Bottom Trend")
-            BottomPredictionsPage.plot_days_to_bottom(pred_df)
-            
-            # Statistics
-            st.subheader("Statistics")
-            col1, col2, col3, col4 = st.columns(4)
-            
-            with col1:
-                st.metric(
-                    "Latest Prediction",
-                    f"{pred_df['days_to_bottom'].iloc[0]:.0f} days"
-                )
-            with col2:
-                st.metric(
-                    "Average",
-                    f"{pred_df['days_to_bottom'].mean():.0f} days"
-                )
-            with col3:
-                st.metric(
-                    "Max",
-                    f"{pred_df['days_to_bottom'].max():.0f} days"
-                )
-            with col4:
-                st.metric(
-                    "Min",
-                    f"{pred_df['days_to_bottom'].min():.0f} days"
-                )
+            # Plot only if we have numeric days_to_bottom values
+            valid_df = pred_df.dropna(subset=['days_to_bottom'])
+            if len(valid_df) > 0:
+                st.subheader("Days to Bottom Trend")
+                BottomPredictionsPage.plot_days_to_bottom(valid_df)
+                
+                # Statistics
+                st.subheader("Statistics")
+                col1, col2, col3, col4 = st.columns(4)
+                
+                with col1:
+                    st.metric(
+                        "Latest Prediction",
+                        f"{valid_df['days_to_bottom'].iloc[0]:.0f} days"
+                    )
+                with col2:
+                    st.metric(
+                        "Average",
+                        f"{valid_df['days_to_bottom'].mean():.0f} days"
+                    )
+                with col3:
+                    st.metric(
+                        "Max",
+                        f"{valid_df['days_to_bottom'].max():.0f} days"
+                    )
+                with col4:
+                    st.metric(
+                        "Min",
+                        f"{valid_df['days_to_bottom'].min():.0f} days"
+                    )
         else:
             st.info("No predictions available yet")
 

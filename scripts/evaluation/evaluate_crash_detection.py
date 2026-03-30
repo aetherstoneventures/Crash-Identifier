@@ -30,6 +30,7 @@ def evaluate_crash_detection():
     with db.get_session() as session:
         # Load crash events
         crashes = session.query(CrashEvent).all()
+        session.expunge_all()
 
         # Load predictions
         query = """

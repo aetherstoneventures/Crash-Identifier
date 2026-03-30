@@ -15,16 +15,14 @@ class OverviewPage:
     def load_data() -> Tuple[List, List]:
         """Load latest data from database."""
         db = DatabaseManager()
-        session = db.get_session()
-        try:
+        with db.get_session() as session:
             indicators = session.query(Indicator).order_by(
                 Indicator.date.desc()
             ).limit(365).all()
             predictions = session.query(Prediction).order_by(
                 Prediction.prediction_date.desc()
             ).limit(10).all()
-        finally:
-            session.close()
+            session.expunge_all()
         return indicators, predictions
     
     @staticmethod
@@ -67,10 +65,12 @@ class OverviewPage:
         if predictions:
             pred_data = []
             for p in predictions[:5]:
+                ci_lower = p.confidence_interval_lower or 0.0
+                ci_upper = p.confidence_interval_upper or 0.0
                 pred_data.append({
                     'Date': p.prediction_date,
                     'Crash Probability': f"{p.crash_probability:.2%}",
-                    'Confidence': f"{p.confidence_interval:.2%}"
+                    'Confidence': f"{ci_lower:.2%} - {ci_upper:.2%}"
                 })
             
             pred_df = pd.DataFrame(pred_data)

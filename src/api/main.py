@@ -195,11 +195,7 @@ async def get_latest_prediction(
             
             session.expunge_all()
         
-        # Use the appropriate probability based on model
-        if "statistical" in model_name.lower():
-            probability = prediction.statistical_probability or 0.0
-        else:
-            probability = prediction.ml_probability or 0.0
+        probability = prediction.crash_probability or 0.0
         
         return PredictionResponse(
             date=prediction.prediction_date,
@@ -240,10 +236,7 @@ async def get_historical_predictions(
         # Convert to response format
         prediction_list = []
         for pred in predictions:
-            if "statistical" in model_name.lower():
-                probability = pred.statistical_probability or 0.0
-            else:
-                probability = pred.ml_probability or 0.0
+            probability = pred.crash_probability or 0.0
             
             prediction_list.append(PredictionResponse(
                 date=pred.prediction_date,

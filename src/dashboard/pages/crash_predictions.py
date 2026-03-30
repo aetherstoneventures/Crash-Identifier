@@ -15,13 +15,11 @@ class CrashPredictionsPage:
     def load_predictions() -> List:
         """Load predictions from database."""
         db = DatabaseManager()
-        session = db.get_session()
-        try:
+        with db.get_session() as session:
             predictions = session.query(Prediction).order_by(
                 Prediction.prediction_date.desc()
             ).limit(100).all()
-        finally:
-            session.close()
+            session.expunge_all()
         return predictions
     
     @staticmethod
@@ -72,7 +70,6 @@ class CrashPredictionsPage:
                 pred_data.append({
                     'prediction_date': p.prediction_date,
                     'crash_probability': p.crash_probability,
-                    'confidence_interval': p.confidence_interval,
                     'model_version': p.model_version
                 })
             
@@ -82,9 +79,6 @@ class CrashPredictionsPage:
             st.subheader("Prediction History")
             display_df = pred_df.copy()
             display_df['crash_probability'] = display_df['crash_probability'].apply(
-                lambda x: f"{x:.2%}"
-            )
-            display_df['confidence_interval'] = display_df['confidence_interval'].apply(
                 lambda x: f"{x:.2%}"
             )
             st.dataframe(display_df, use_container_width=True)

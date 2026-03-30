@@ -15,13 +15,11 @@ class IndicatorsPage:
     def load_indicators() -> List:
         """Load indicators from database."""
         db = DatabaseManager()
-        session = db.get_session()
-        try:
+        with db.get_session() as session:
             indicators = session.query(Indicator).order_by(
                 Indicator.date.desc()
             ).limit(365).all()
-        finally:
-            session.close()
+            session.expunge_all()
         return indicators
     
     @staticmethod
@@ -62,11 +60,11 @@ class IndicatorsPage:
             for i in indicators:
                 ind_data.append({
                     'date': i.date,
-                    'yield_spread_10y_2y': i.yield_spread_10y_2y,
-                    'credit_spread_baa_aaa': i.credit_spread_baa_aaa,
+                    'yield_10y_2y': i.yield_10y_2y,
+                    'credit_spread_bbb': i.credit_spread_bbb,
                     'vix_close': i.vix_close,
                     'unemployment_rate': i.unemployment_rate,
-                    'inflation_rate': i.inflation_rate
+                    'cpi': i.cpi
                 })
             
             ind_df = pd.DataFrame(ind_data)
@@ -78,11 +76,11 @@ class IndicatorsPage:
             # Select indicators to plot
             st.subheader("Indicator Selection")
             available_cols = [
-                'yield_spread_10y_2y',
-                'credit_spread_baa_aaa',
+                'yield_10y_2y',
+                'credit_spread_bbb',
                 'vix_close',
                 'unemployment_rate',
-                'inflation_rate'
+                'cpi'
             ]
             
             selected_cols = st.multiselect(
@@ -102,7 +100,7 @@ class IndicatorsPage:
             with col1:
                 st.metric(
                     "Latest Yield Spread",
-                    f"{ind_df['yield_spread_10y_2y'].iloc[0]:.2f}%"
+                    f"{ind_df['yield_10y_2y'].iloc[0]:.2f}%"
                 )
             with col2:
                 st.metric(
