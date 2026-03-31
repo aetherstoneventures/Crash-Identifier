@@ -215,11 +215,25 @@ def collect_data():
     logger.info("STEP 5: Cleaning Data")
     logger.info("=" * 80)
 
-    # Fill NaN values using forward fill then backward fill
+    # Save sp500_close before global fill so we do NOT corrupt it with bfill.
+    # The SP500 cache only starts from the most recently cached date (e.g. 2016).
+    # Applying bfill would propagate that first value backwards across decades,
+    # creating a flat line that breaks crash detection for the entire pre-cache era.
+    sp500_close_original = combined_df['sp500_close'].copy() if 'sp500_close' in combined_df.columns else None
+
+    # Fill NaN values using forward fill then backward fill (safe for monthly FRED series)
     combined_df = combined_df.ffill().bfill()
+
+    # Restore sp500_close: only forward-fill within its actual date range.
+    # Rows before the first real SP500 observation will remain NaN so that
+    # the crash-detection algorithm can distinguish 'no data' from 'flat market'.
+    if sp500_close_original is not None:
+        combined_df['sp500_close'] = sp500_close_original.ffill()
 
     # For any remaining NaN values, fill with column mean
     for col in combined_df.columns:
+        if col == 'sp500_close':
+            continue  # keep NaN for pre-SP500-data rows; crash detection handles this
         if combined_df[col].isna().any():
             combined_df[col] = combined_df[col].fillna(combined_df[col].mean())
 

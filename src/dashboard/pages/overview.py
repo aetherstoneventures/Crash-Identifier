@@ -1,7 +1,7 @@
 """Overview page for dashboard."""
 
 import streamlit as st
-from datetime import datetime
+from datetime import datetime, date, timedelta
 from typing import List, Tuple
 import pandas as pd
 
@@ -10,15 +10,16 @@ from src.utils.database import DatabaseManager, Indicator, Prediction
 
 class OverviewPage:
     """Overview page component."""
-    
+
     @staticmethod
-    def load_data() -> Tuple[List, List]:
-        """Load latest data from database."""
+    def load_data(start_date=None) -> Tuple[List, List]:
+        """Load data from database, optionally filtered by start date."""
         db = DatabaseManager()
         with db.get_session() as session:
-            indicators = session.query(Indicator).order_by(
-                Indicator.date.desc()
-            ).limit(365).all()
+            q = session.query(Indicator).order_by(Indicator.date.desc())
+            if start_date:
+                q = q.filter(Indicator.date >= start_date)
+            indicators = q.all()
             predictions = session.query(Prediction).order_by(
                 Prediction.prediction_date.desc()
             ).limit(10).all()
@@ -29,9 +30,15 @@ class OverviewPage:
     def render():
         """Render overview page."""
         st.header("System Overview")
-        
+
+        # Date range selector
+        years_back = st.slider(
+            "Show data for the last N years", 1, 44, 5, key="overview_years"
+        )
+        start_date = date.today() - timedelta(days=years_back * 365)
+
         # Load data
-        indicators, predictions = OverviewPage.load_data()
+        indicators, predictions = OverviewPage.load_data(start_date=start_date)
         
         # Metrics row
         col1, col2, col3, col4 = st.columns(4)

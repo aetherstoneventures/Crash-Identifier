@@ -3,6 +3,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
+from datetime import date, timedelta
 from typing import List
 
 from src.utils.database import DatabaseManager, Prediction
@@ -10,15 +11,18 @@ from src.utils.database import DatabaseManager, Prediction
 
 class CrashPredictionsPage:
     """Crash predictions page component."""
-    
+
     @staticmethod
-    def load_predictions() -> List:
-        """Load predictions from database."""
+    def load_predictions(start_date=None) -> List:
+        """Load predictions from database, optionally filtered by start date."""
         db = DatabaseManager()
         with db.get_session() as session:
-            predictions = session.query(Prediction).order_by(
+            q = session.query(Prediction).order_by(
                 Prediction.prediction_date.desc()
-            ).limit(100).all()
+            )
+            if start_date:
+                q = q.filter(Prediction.prediction_date >= start_date)
+            predictions = q.all()
             session.expunge_all()
         return predictions
     
@@ -59,9 +63,15 @@ class CrashPredictionsPage:
         """Render crash predictions page."""
         st.header("Crash Predictions")
         st.markdown("Ensemble model predictions for market crashes")
-        
+
+        # Date range selector
+        years_back = st.slider(
+            "Show data for the last N years", 1, 44, 5, key="predictions_years"
+        )
+        start_date = date.today() - timedelta(days=years_back * 365)
+
         # Load predictions
-        predictions = CrashPredictionsPage.load_predictions()
+        predictions = CrashPredictionsPage.load_predictions(start_date=start_date)
         
         if predictions:
             # Convert to DataFrame

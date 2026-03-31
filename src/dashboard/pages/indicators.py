@@ -3,6 +3,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
+from datetime import date, timedelta
 from typing import List
 
 from src.utils.database import DatabaseManager, Indicator
@@ -10,15 +11,16 @@ from src.utils.database import DatabaseManager, Indicator
 
 class IndicatorsPage:
     """Indicators page component."""
-    
+
     @staticmethod
-    def load_indicators() -> List:
-        """Load indicators from database."""
+    def load_indicators(start_date=None) -> List:
+        """Load indicators from database, optionally filtered by start date."""
         db = DatabaseManager()
         with db.get_session() as session:
-            indicators = session.query(Indicator).order_by(
-                Indicator.date.desc()
-            ).limit(365).all()
+            q = session.query(Indicator).order_by(Indicator.date.desc())
+            if start_date:
+                q = q.filter(Indicator.date >= start_date)
+            indicators = q.all()
             session.expunge_all()
         return indicators
     
@@ -50,9 +52,15 @@ class IndicatorsPage:
         """Render indicators page."""
         st.header("Economic Indicators")
         st.markdown("Real-time economic indicators from FRED and Yahoo Finance")
-        
+
+        # Date range selector
+        years_back = st.slider(
+            "Show data for the last N years", 1, 44, 5, key="indicators_years"
+        )
+        start_date = date.today() - timedelta(days=years_back * 365)
+
         # Load indicators
-        indicators = IndicatorsPage.load_indicators()
+        indicators = IndicatorsPage.load_indicators(start_date=start_date)
         
         if indicators:
             # Convert to DataFrame
