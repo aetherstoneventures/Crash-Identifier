@@ -1,0 +1,14 @@
+{
+  "model": "GBM_v4",
+  "alarm_entry_threshold": 0.4,
+  "alarm_exit_threshold": 0.2,
+  "alarm_min_duration_days": 10.0,
+  "alarm_max_duration_days": 45.0,
+  "multifactor_gate_min": 2.0,
+  "oos_roc_auc": 0.792,
+  "alarm_precision": 0.5,
+  "crash_detection_rate": 1.0,
+  "median_lead_days": 150,
+  "crash_label_min_drawdown": 0.15,
+  "crash_label_min_td": 30
+}
