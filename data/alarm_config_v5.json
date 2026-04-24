@@ -1,0 +1,25 @@
+{
+  "model": "v5",
+  "entry": 0.45,
+  "exit": 0.2,
+  "min_dur": 20,
+  "max_dur": 30,
+  "mf_min": 2,
+  "overall_oos_auc": 0.788,
+  "tune_metrics": {
+    "ev_prec": 0.9523809523809523,
+    "ev_det": 0.9333333333333333,
+    "day_prec": 0.8763383297644539,
+    "day_rec": 0.5604245121533721,
+    "alarm_day_pct": 0.18993390950686323,
+    "lead_from_peak": -27
+  },
+  "test_metrics": {
+    "ev_prec": 0.75,
+    "ev_det": 1.0,
+    "day_prec": 0.7065527065527065,
+    "day_rec": 0.6985915492957746,
+    "alarm_day_pct": 0.2635135135135135,
+    "lead_from_peak": -73
+  }
+}
