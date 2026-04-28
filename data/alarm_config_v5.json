@@ -1,25 +1,25 @@
 {
   "model": "v5",
-  "entry": 0.45,
+  "entry": 0.35,
   "exit": 0.2,
   "min_dur": 20,
   "max_dur": 30,
-  "mf_min": 2,
-  "overall_oos_auc": 0.788,
+  "mf_min": 1,
+  "overall_oos_auc": 0.757,
   "tune_metrics": {
-    "ev_prec": 0.9523809523809523,
-    "ev_det": 0.9333333333333333,
-    "day_prec": 0.8763383297644539,
-    "day_rec": 0.5604245121533721,
-    "alarm_day_pct": 0.18993390950686323,
-    "lead_from_peak": -27
+    "ev_prec": 0.975609756097561,
+    "ev_det": 0.6666666666666666,
+    "day_prec": 0.9302721088435374,
+    "day_rec": 0.374529270797672,
+    "alarm_day_pct": 0.1195729537366548,
+    "lead_from_peak": -16
   },
   "test_metrics": {
-    "ev_prec": 0.75,
+    "ev_prec": 0.7692307692307693,
     "ev_det": 1.0,
-    "day_prec": 0.7065527065527065,
-    "day_rec": 0.6985915492957746,
-    "alarm_day_pct": 0.2635135135135135,
-    "lead_from_peak": -73
+    "day_prec": 0.599483204134367,
+    "day_rec": 0.6535211267605634,
+    "alarm_day_pct": 0.2901049475262369,
+    "lead_from_peak": 37
   }
 }

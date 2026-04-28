@@ -82,6 +82,16 @@ def compute_crash_labels(prices, dd_thresh=0.15, min_td=30):
 crash_label = compute_crash_labels(eq, dd_thresh=0.15, min_td=30)
 print(f'\nCrash days (NASDAQ, ≥15% DD, ≥30TD): {int(crash_label.sum())} / {len(crash_label)} ({crash_label.mean():.1%})')
 
+# Guard: if NASDAQ data wasn't fetched (e.g. fetch_v5_features.py was skipped or
+# the FRED API was unavailable), abort gracefully — the pre-trained v5 model
+# at models/v5/v5_final.pkl and the frozen alarm config remain valid.
+if len(crash_label) == 0 or crash_label.sum() == 0:
+    print('\nERROR: nasdaq_close is empty in the indicators table.')
+    print('       Run scripts/data/fetch_v5_features.py first to populate it.')
+    print('       The frozen v5 model at models/v5/v5_final.pkl still works for')
+    print('       inference; this trainer just cannot retrain without NASDAQ history.')
+    sys.exit(1)
+
 def get_periods(lbl, prices):
     periods = []; in_c=False; cs=None
     for dt, v in lbl.items():
@@ -127,7 +137,9 @@ for f in raw_feats:
     if f in feats.columns:
         sc[f] = feats[f].values
 
-sc = sc.ffill().bfill().fillna(0)
+# Coerce every feature to float (DB columns may come back as object dtype if
+# they exist in the schema but are NULL/empty; XGBoost rejects object dtype).
+sc = sc.apply(pd.to_numeric, errors='coerce').ffill().bfill().fillna(0).astype(float)
 feat_cols = list(sc.columns)
 print(f'Feature matrix: {sc.shape}  ({len(feat_cols)} features)')
 

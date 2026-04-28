@@ -133,13 +133,14 @@ run_step() {
 }
 
 run_step "1. Collecting market & economic data"      "$ROOT/scripts/data/collect_data.py"
-run_step "2. Populating historical crash events"     "$ROOT/scripts/data/populate_crash_events.py"
-run_step "3a. Training StatV3 (statistical model)"   "$ROOT/scripts/training/train_statistical_model_v3.py"
-run_step "3b. Generating StatV3 predictions"         "$ROOT/scripts/utils/generate_predictions_v5.py"
-run_step "3c. Training v5 walk-forward (canonical)"  "$ROOT/scripts/training/train_v5_walkforward.py"
-run_step "3d. Training bottom-predictor"             "$ROOT/scripts/training/train_bottom_predictor.py"
-run_step "4. Generating bottom predictions"          "$ROOT/scripts/utils/generate_bottom_predictions.py"
-run_step "5. Evaluating crash detection"             "$ROOT/scripts/evaluation/evaluate_crash_detection.py"
+run_step "2. Fetching v5 daily features (FRED)"      "$ROOT/scripts/data/fetch_v5_features.py"
+run_step "3. Populating historical crash events"     "$ROOT/scripts/data/populate_crash_events.py"
+run_step "4a. Training StatV3 (statistical model)"   "$ROOT/scripts/training/train_statistical_model_v3.py"
+run_step "4b. Generating StatV3 predictions"         "$ROOT/scripts/utils/generate_predictions_v5.py"
+run_step "4c. Training v5 walk-forward (canonical)"  "$ROOT/scripts/training/train_v5_walkforward.py"
+run_step "4d. Training bottom-predictor"             "$ROOT/scripts/training/train_bottom_predictor.py"
+run_step "5. Generating bottom predictions"          "$ROOT/scripts/utils/generate_bottom_predictions.py"
+run_step "6. Evaluating crash detection"             "$ROOT/scripts/evaluation/evaluate_crash_detection.py"
 
 echo -e "${G}✓ Pipeline complete${N}\n"
 
