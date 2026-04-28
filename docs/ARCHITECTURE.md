@@ -131,25 +131,22 @@ A production-grade machine learning system for predicting market crashes and rec
 
 ### 8.1 Run Full Pipeline
 ```bash
-bash scripts/run_pipeline.sh
+./run.sh
 ```
-This:
-1. Creates virtual environment
-2. Installs dependencies
-3. Runs data backfill (1982-2025)
-4. Trains all 7 models
-5. Runs 154 tests
-6. Starts dashboard
+Prompts FRESH-vs-REUSE for the venv, then runs the canonical v5 pipeline
+(collect → StatV3 → v5 walk-forward → bottom-predictor → evaluate) and
+launches the dashboard.
 
 ### 8.2 Run Dashboard Only
 ```bash
-bash scripts/run_dashboard.sh
+./run.sh --dashboard-only
 ```
 
 ### 8.3 Access Dashboard
 ```
 http://localhost:8501
 ```
+Default landing tab is **🛡️ v5 Production**.
 
 ## 9. System Capabilities
 
@@ -180,11 +177,16 @@ market-crash-predictor/
 ├── docs/
 │   ├── ARCHITECTURE.md (this file)
 │   └── initiation_docs/
+├── run.sh                       # single-command launcher
 ├── scripts/
-│   ├── run_pipeline.sh
-│   ├── run_dashboard.sh
-│   ├── train_models.py
-│   └── backfill_data.py
+│   ├── data/                    # collect_data, populate_crash_events, …
+│   ├── training/                # train_statistical_model_v3,
+│   │                            # train_v5_walkforward (canonical),
+│   │                            # train_bottom_predictor
+│   ├── utils/                   # generate_predictions_v5,
+│   │                            # generate_bottom_predictions, v5_backtest
+│   ├── evaluation/              # evaluate_crash_detection, evaluate_bottom_predictions
+│   └── research/                # experiments A / C / D / D-round2 (frozen)
 ├── src/
 │   ├── models/
 │   │   ├── crash_prediction/

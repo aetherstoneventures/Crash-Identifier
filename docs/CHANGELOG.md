@@ -2,6 +2,45 @@
 
 All notable changes to the Market Crash Predictor system.
 
+## [3.1.0] - 2026-04-28
+
+### Lean cleanup — v5 frozen as production
+
+After v6, v5_multi and four future-work experiments all FAILED kill criteria,
+v5 has been formally frozen as the production model and the repo trimmed to
+the canonical pipeline.
+
+**Added**
+- **`run.sh`** — single-command launcher at the repo root with FRESH-vs-REUSE
+  venv prompt and `--dashboard-only`/`--fresh`/`--reuse` flags.
+- **`src/dashboard/pages/v5_production.py`** — fancy v5-aware dashboard page
+  (live alarm state, master chart with alarm shading, BLIND scorecard, kill
+  scorecard vs shelved alternatives, historical events table).
+- **`🛡️ v5 Production` tab** — now the dashboard's landing page.
+
+**Removed (transitional artifacts)**
+- `scripts/run_pipeline.sh`, `scripts/run_dashboard.sh` (superseded by `run.sh`).
+- `scripts/training/train_v4_walkforward_gbm.py`, `train_v6.py`,
+  `train_advanced_models.py`, `scripts/training/archive/` (all obsolete).
+- `scripts/data/fetch_v6_features.py`.
+- `scripts/utils/phase{2..6}_*.py`, `eval_phase3.py`, `full_upgrade_pipeline.py`,
+  `april2026_refresh{,_v2}.py`, `refresh_{april_24,sp500_history,v5}.py`,
+  `alarm_duration_scan.py`, `analyze_results.py`, `crash_scorecard.py`,
+  `critical_audit.py`, `v6_kill_or_promote.py`.
+- `data/alarm_config{,_v4,_v6}.json`, `data/experiment_D_multi_asset.json`
+  (round 1, superseded by `_round2`), `data/optimal_threshold.txt`,
+  `data/v5_backtest.csv`, `models/v4_gbm_final.pkl`.
+- `docs/archive/`, `DEEP_AUDIT_REPORT.md`.
+
+**Pipeline order (lean)**
+1. `collect_data.py` → 2. `populate_crash_events.py` →
+3. `train_statistical_model_v3.py` → 4. `generate_predictions_v5.py` (StatV3
+predictions) → 5. **`train_v5_walkforward.py`** (canonical v5) →
+6. `train_bottom_predictor.py` → 7. `generate_bottom_predictions.py` →
+8. `evaluate_crash_detection.py` → 9. dashboard.
+
+---
+
 ## [2.0.0] - 2025-11-07
 
 ### 🎉 Major Release: Advanced ML with Production Infrastructure
@@ -238,7 +277,7 @@ This is a complete overhaul of the system with advanced machine learning models,
 
 ### Breaking Changes
 
-1. **Model Files**: Old pickle files are no longer compatible. Retrain models using `scripts/training/train_advanced_models.py`
+1. **Model Files**: Old pickle files are no longer compatible. Retrain via `./run.sh` (canonical: `scripts/training/train_v5_walkforward.py`)
 
 2. **Configuration**: Update `.env` file with new variables (see `.env.example`)
 
@@ -264,7 +303,7 @@ This is a complete overhaul of the system with advanced machine learning models,
 
 4. **Retrain models**:
    ```bash
-   python scripts/training/train_advanced_models.py
+   ./run.sh
    ```
 
 5. **Optional: Migrate to PostgreSQL**:

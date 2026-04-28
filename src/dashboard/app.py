@@ -524,62 +524,42 @@ def page_crash_predictions():
         col1, col2 = st.columns(2)
 
         with col1:
-            st.subheader("🤖 ML Ensemble Model V5")
+            st.subheader("🛡️ v5 — Production Crash Detector")
             st.markdown("""
-            **Architecture:** Weighted ensemble of 2 models
-            - **Gradient Boosting** (70% weight): 100 estimators, max_depth=5
-            - **Random Forest** (30% weight): 100 trees, max_depth=10
+            > See the **🛡️ v5 Production** tab for the canonical interactive view.
 
-            **Regularization (Anti-Overfitting):**
-            - Min samples split: 10
-            - Min samples leaf: 5
-            - Subsample: 0.8 (GB only)
-            - Class weight: balanced (RF only)
+            **Architecture (current production)**
+            - **Predictive ML**: XGBoost (n_est=500, max_depth=4, lr=0.03, subsample=0.75,
+              colsample_bytree=0.8, min_child_weight=15, α=0.1, λ=2.0,
+              scale_pos_weight = neg/pos)
+            - **Statistical risk**: StatV3 multi-factor scoring (yield curve, credit,
+              market, sentiment, economic, financial-conditions, momentum-shock)
+            - **Blend**: signal = 0.5 × XGBoost_proba + 0.5 × StatV3_total_risk
+            - **Alarm hysteresis**: enter ≥ 0.45, exit < 0.20, min_dur 20d, max_dur 30d
+            - **Re-entry rule**: 5-day cool-off then long when price > MA50
 
-            **Features:** 39 engineered features from **20 base indicators**
+            **Validation discipline**
+            - Nested walk-forward, 4 folds (1999-2005, 2005-2012, 2012-2020, 2020-2026)
+            - **TUNE** ≤ 2020-12-31 used for hyperparameter + alarm-config search
+            - **BLIND** ≥ 2021-01-01 evaluated *once* with frozen config
+            - Crash labels: rolling 252d max DD ≥ 15%, peak-back-walked, ≥ 30 TD
+            - 17 historical crash episodes since 1983; 2 in BLIND
 
-            **Base Indicators (20):**
-            1. Yield Curve (10Y-3M, 10Y-2Y, 10Y)
-            2. Credit Spreads (BBB)
-            3. Unemployment Rate
-            4. Real GDP
-            5. CPI (Inflation)
-            6. Fed Funds Rate
-            7. Industrial Production
-            8. S&P 500 (Close, Volume)
-            9. VIX (Volatility Index)
-            10. Consumer Sentiment
-            11. Housing Starts
-            12. M2 Money Supply
-            13. Debt-to-GDP Ratio
-            14. Savings Rate
-            15. Leading Economic Index (LEI)
-            16. Margin Debt (Synthetic)
-            17. Put/Call Ratio (Synthetic)
+            **BLIND out-of-sample performance (frozen 2021-now)**
+            - Event detection: **100%** (2/2 crashes)
+            - Day-precision: **95.8%**
+            - CAGR: **23.0%** vs buy-and-hold ~15%
+            - Sharpe: **1.45** · MaxDD: **-13.2%**
+            - Median lead from peak: -9d (near-coincident, by design)
 
-            **Engineered Features (39 total):**
-            - Raw indicators (20)
-            - Moving averages (5, 20, 60 days)
-            - Rate of change (5, 20 days)
-            - Z-scores (normalized values)
-            - Interaction terms
-
-            **Validation:** 5-Fold TimeSeriesSplit Cross-Validation
-            - Prevents temporal leakage (trains on past, tests on future)
-            - Test AUC: ~0.73
-            - Recall: 81.8% (9/11 crashes detected)
-            - Overfitting gap: < 0.002 (minimal overfitting)
-
-            **Strengths:**
-            - Learns complex non-linear patterns
-            - Robust to overfitting (validated)
-            - Combines tree-based algorithms
-            - Handles feature interactions
-
-            **Weaknesses:**
-            - Requires sufficient historical data
-            - Less interpretable than statistical model
-            - Performance depends on feature quality
+            **Why this and not something fancier?**
+            Three independent attempts to "improve" v5 (v5.1 with FRED leading
+            indicators, v6 with options + breadth + cross-asset, and v5_multi with
+            US+EU+Asia pooled training of 83 events) all FAILED kill criteria on
+            BLIND. Experiment C established that even a *perfect* bottom-finder
+            oracle improves CAGR by only +0.5pp over the current MA50 rule.
+            v5 sits at the practical Pareto frontier for this problem.
+            See `docs/FUTURE_WORK_RESULTS.md` for the full scorecard.
             """)
 
 
@@ -2239,7 +2219,8 @@ def main():
     st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
     # Use tabs instead of sidebar navigation
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+    tab_v5, tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+        "🛡️ v5 Production",
         "📊 Overview",
         "🚨 Crash Predictions",
         "📈 Bottom Predictions",
@@ -2248,6 +2229,10 @@ def main():
         "📊 Model Accuracy"
     ])
 
+    with tab_v5:
+        # Lazy import so v5 page doesn't slow other tabs if it has heavy deps
+        from src.dashboard.pages import v5_production
+        v5_production.render()
     with tab1:
         page_overview()
     with tab2:
