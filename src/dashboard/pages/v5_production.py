@@ -544,6 +544,16 @@ def _kill_scorecard(state: dict) -> pd.DataFrame:
 
 
 def _events_table(state: dict) -> pd.DataFrame:
+    """Build the historical-events table with two lead columns:
+
+    - **Lead-to-peak (d)**: signed.  positive = alarm fired BEFORE peak
+      (early warning); negative = alarm fired AFTER peak (concurrent
+      detection — the normal case for v5, which is a near-coincident
+      detector by design).
+    - **Days into drawdown when caught**: always ≥ 0.  How many days from
+      peak to first alarm.  Same magnitude as |Lead-to-peak| when negative,
+      and 0 when alarm fires before or on the peak.
+    """
     events = state["events"].copy()
     if events.empty: return events
     am = state["am_full"]
@@ -557,16 +567,19 @@ def _events_table(state: dict) -> pd.DataFrame:
         if detected:
             first_alarm_day = detected_mask[detected_mask].index[0]
             lead = (ev.peak - first_alarm_day).days
+            into_dd = max(0, -lead)
         else:
             lead = None
+            into_dd = None
         rows.append({
-            "Peak":     ev.peak.strftime("%Y-%m-%d"),
-            "Trough":   ev.trough.strftime("%Y-%m-%d"),
-            "Drawdown": f"{ev.drawdown*100:.1f}%",
-            "Duration": f"{ev.duration_d}d",
-            "Era":      "BLIND" if ev.peak >= TEST_START else "TUNE",
-            "v5 caught?": "✅" if detected else "❌",
-            "Lead from peak (d)": "—" if lead is None else f"{lead:+d}",
+            "Peak date":    ev.peak.strftime("%Y-%m-%d"),
+            "Trough date":  ev.trough.strftime("%Y-%m-%d"),
+            "Drawdown":     f"{ev.drawdown*100:.1f}%",
+            "Duration":     f"{ev.duration_d}d",
+            "Era":          "BLIND" if ev.peak >= TEST_START else "TUNE",
+            "v5 caught?":   "✅" if detected else "❌",
+            "Lead-to-peak (d)":          "—" if lead is None else f"{lead:+d}",
+            "Days into drawdown caught": "—" if into_dd is None else f"{into_dd}d",
         })
     return pd.DataFrame(rows)
 
@@ -694,10 +707,16 @@ def render() -> None:
     ev_df = _events_table(state)
     st.dataframe(ev_df, use_container_width=True, hide_index=True)
     n_ev = len(ev_df); n_caught = (ev_df["v5 caught?"] == "✅").sum() if n_ev else 0
-    st.caption(f"v5 detected {n_caught}/{n_ev} historical crash episodes "
-               f"({n_caught/max(n_ev,1)*100:.0f}%) with median lead "
-               f"of {state['alarm_metrics_blind']['lead']}d (BLIND), "
-               f"{state['alarm_metrics_tune']['lead']}d (TUNE).")
+    st.caption(
+        f"v5 detected {n_caught}/{n_ev} historical crash episodes "
+        f"({n_caught/max(n_ev,1)*100:.0f}%) with median lead-to-peak "
+        f"of {state['alarm_metrics_blind']['lead']}d (BLIND), "
+        f"{state['alarm_metrics_tune']['lead']}d (TUNE). "
+        f"v5 is a **near-coincident detector** by design — negative lead-to-peak "
+        f"means the alarm fires AFTER the price peak, typically once a developing "
+        f"drawdown is already confirmed by the BAA spread, VIX and momentum factors. "
+        f"Positive lead-to-peak (early warning) is a bonus, not the norm."
+    )
 
     # ---- Methodology --------------------------------------------------
     with st.expander("🧠 Architecture & methodology", expanded=False):
@@ -715,6 +734,30 @@ mirrored at branch `v5-benchmark-protected`.
   minimum duration {state['cfg']['min_dur']}d, max {state['cfg']['max_dur']}d.
 - **Re-entry**: 5-day cool-off after alarm clears, then long Nasdaq when price > MA50.
 - **Cost**: 5 bp per round-trip applied to backtest.
+
+**How entry / exit are computed** (no hand-tuning, no leakage)
+1. After the 4 walk-forward folds produce out-of-sample probabilities for
+   1999-2020, the trainer takes the v5 blended signal restricted to TUNE.
+2. **Grid search** — 5 × 3 × 4 × 4 × 3 = 720 combinations of
+   `entry ∈ {{0.25, 0.30, 0.35, 0.40, 0.45}}`, `exit ∈ {{0.10, 0.15, 0.20}}`,
+   `min_dur ∈ {{5, 10, 15, 20}}d`, `max_dur ∈ {{30, 45, 60, 90}}d`,
+   `mf_min ∈ {{1, 2, 3}}` (min. number of StatV3 risk factors elevated).
+3. **Constraints** (must pass): `event_detection ≥ 75%` AND `day_precision ≥ 30%`
+   on TUNE.
+4. **Objective**: `score = 2·event_detection + day_precision − 2·alarm_day_pct`.
+5. The winning tuple is written to `data/alarm_config_v5.json` and **frozen**.
+   BLIND (≥ 2021) is then evaluated *once* with that frozen config.
+6. **Hysteresis at inference**: state starts OFF. When `prob ≥ entry` → ON.
+   Once ON, stay ON until `prob < exit` AND `days_since_on ≥ min_dur`. Force OFF
+   at `max_dur` days. The gap between entry and exit (with min_duration) is
+   what prevents the alarm from chattering when `prob` oscillates near a single
+   threshold.
+
+Current values: **entry={state['cfg']['entry']:.2f}, exit={state['cfg']['exit']:.2f},
+min_dur={state['cfg']['min_dur']}d, max_dur={state['cfg']['max_dur']}d**
+(re-tuned on whatever data is currently available; the frozen v5-BENCHMARK at
+git tag `v5-BENCHMARK` chose `entry=0.45, exit=0.20, min_dur=20d` from a richer
+dataset).
 
 **Validation discipline**
 - Nested walk-forward, 4 folds: (1999-2005), (2005-2012), (2012-2020), (2020-2026).
