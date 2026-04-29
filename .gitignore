@@ -92,9 +92,7 @@ logs/
 !data/backups/.gitkeep
 !data/mlflow/.gitkeep
 
-data/processed/forward_risk_features.parquet
-data/processed/forward_risk_targets.parquet
-data/processed/forward_risk_predictions.parquet
-data/processed/forward_risk_diagnostics/
-data/processed/forward_risk_conformal_summary.csv
-data/processed/forward_risk_predictions_conformal.parquet
+# Forward Risk: ship only the dashboard-consumed artifacts; everything
+# else is reproducible from the scripts/forward_risk/ pipeline.
+!data/processed/forward_risk_predictions_conformal.parquet
+!data/processed/forward_risk_conformal_summary.csv

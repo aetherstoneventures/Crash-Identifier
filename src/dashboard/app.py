@@ -794,8 +794,9 @@ def main():
         unsafe_allow_html=True,
     )
 
-    tab_v5, tab_ind, tab_bot = st.tabs([
+    tab_v5, tab_fr, tab_ind, tab_bot = st.tabs([
         "🛡️ v5 Production",
+        "🔮 Forward Risk (1m)",
         "📋 Indicators",
         "📈 Bottom Re-entry",
     ])
@@ -803,6 +804,9 @@ def main():
     with tab_v5:
         from src.dashboard.pages import v5_production
         v5_production.render()
+    with tab_fr:
+        from src.dashboard.pages import forward_risk
+        forward_risk.render()
     with tab_ind:
         page_indicators()
     with tab_bot:
