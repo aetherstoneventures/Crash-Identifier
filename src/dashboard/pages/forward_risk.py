@@ -32,6 +32,15 @@ DB_PATH = ROOT / "data" / "market_crash.db"
 BLIND_START = pd.Timestamp("2021-01-01")
 H_SHIP = 21  # only horizon that passes strict [85%, 95%] BLIND coverage.
 
+# Match the dashboard's signature dark theme (same as v5_production tab).
+COL_BG       = "#0A0E1A"
+COL_PRICE    = "#5BC0EB"          # cool blue
+COL_GBM      = "#FF9F1C"          # amber (90% band)
+COL_BAND_50  = "rgba(91,192,235,0.30)"
+COL_BAND_90  = "rgba(255,159,28,0.18)"
+COL_REAL     = "#FFD23F"          # signature gold for realized
+COL_TEMPLATE = "plotly_dark"
+
 
 @st.cache_data(show_spinner=False)
 def _load_predictions() -> pd.DataFrame:
@@ -109,12 +118,16 @@ def render() -> None:
             help="Median worst-case peak-to-trough log return within the next 21 days.",
         )
     with c4:
-        # Tail probability: P(maxdd worse than -10%). Use empirical quantiles in log-space.
-        cutoff = np.log(1 - 0.10)  # log(0.90)
-        # Linear-interp the implied CDF through (q05, 0.05) ... (q95, 0.95)
+        # Tail probability: P(maxdd worse than -10%). Use post-conformal
+        # quantiles consistently (mixing pre/post would imply a non-monotone CDF).
+        # The median q50 is not conformal-shifted by construction (alpha=0.5
+        # applies to interval endpoints, not the point estimate); we treat it
+        # as the q=0.50 anchor.
+        cutoff = np.log(1 - 0.10)  # log(0.90), -10% simple-return threshold
         qs = np.array([0.05, 0.25, 0.50, 0.75, 0.95])
-        xs = np.array([latest_dd["q05_conf"], latest_dd["q25_orig"],
-                       latest_dd["q50"], latest_dd["q75_orig"], latest_dd["q95_conf"]])
+        xs = np.array([latest_dd["q05_conf"], latest_dd["q25_conf"],
+                       latest_dd["q50"],      latest_dd["q75_conf"],
+                       latest_dd["q95_conf"]])
         order = np.argsort(xs); xs, ys = xs[order], qs[order]
         if cutoff <= xs[0]:
             p = 0.0
@@ -125,7 +138,7 @@ def render() -> None:
         st.metric(
             "P(maxdd worse than -10%)",
             f"{p * 100:.0f}%",
-            help="Probability the worst peak-to-trough log return exceeds -10% over the next 21 days.",
+            help="Probability the worst peak-to-trough log return exceeds -10% over the next 21 days. Computed via linear interpolation of the post-conformal CDF through (q05, q25, q50, q75, q95).",
         )
 
     # ---------------- Honesty band on calibration ----------------
@@ -161,21 +174,21 @@ def render() -> None:
         x=g["date"], y=g["q95_conf"], line=dict(width=0), showlegend=False, hoverinfo="skip"))
     fig.add_trace(go.Scatter(
         x=g["date"], y=g["q05_conf"], line=dict(width=0), fill="tonexty",
-        fillcolor="rgba(255, 159, 28, 0.18)", name="90% CI (post-conformal)",
+        fillcolor=COL_BAND_90, name="90% CI (post-conformal)",
         hovertemplate="q05: %{y:.4f}<extra></extra>"))
-    # 50% band (pre-conformal — original quantiles)
+    # 50% band (post-conformal — same calibration source as the 90% band).
     fig.add_trace(go.Scatter(
-        x=g["date"], y=g["q75_orig"], line=dict(width=0), showlegend=False, hoverinfo="skip"))
+        x=g["date"], y=g["q75_conf"], line=dict(width=0), showlegend=False, hoverinfo="skip"))
     fig.add_trace(go.Scatter(
-        x=g["date"], y=g["q25_orig"], line=dict(width=0), fill="tonexty",
-        fillcolor="rgba(91, 192, 235, 0.30)", name="50% CI (model)"))
+        x=g["date"], y=g["q25_conf"], line=dict(width=0), fill="tonexty",
+        fillcolor=COL_BAND_50, name="50% CI (post-conformal)"))
     # Median
     fig.add_trace(go.Scatter(
-        x=g["date"], y=g["q50"], line=dict(color="#5BC0EB", width=1.4), name="median"))
+        x=g["date"], y=g["q50"], line=dict(color=COL_PRICE, width=1.4), name="median"))
     # Actual (only where observed)
     obs = g.dropna(subset=["y_true"])
     fig.add_trace(go.Scatter(
-        x=obs["date"], y=obs["y_true"], line=dict(color="black", width=1),
+        x=obs["date"], y=obs["y_true"], line=dict(color=COL_REAL, width=1.2),
         name="realized", mode="lines"))
     fig.update_layout(
         height=460,
@@ -184,7 +197,8 @@ def render() -> None:
         xaxis_title=None,
         yaxis_title=("forward 21d log-return" if target == "ret"
                      else "forward 21d max log-drawdown"),
-        template="plotly_white",
+        template=COL_TEMPLATE,
+        plot_bgcolor=COL_BG, paper_bgcolor=COL_BG,
     )
     st.plotly_chart(fig, use_container_width=True)
 
