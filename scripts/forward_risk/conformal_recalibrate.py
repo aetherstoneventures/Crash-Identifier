@@ -63,22 +63,31 @@ def main() -> None:
 
     # Calibration: folds 1-3 (any non-BLIND row in those folds with observed y)
     cal = df[(df["fold"].isin([1, 2, 3])) & df["y_true"].notna()].copy()
-    test = df[df["is_blind"] & df["y_true"].notna()].copy()
-    print(f"Calibration rows (folds 1-3 OOF, 1999-2020): {len(cal):,}")
-    print(f"BLIND test rows (>= 2021-01-01):              {len(test):,}")
+    # Test set for COVERAGE METRICS: BLIND rows with observed y_true only.
+    test_obs = df[df["is_blind"] & df["y_true"].notna()].copy()
+    # OUTPUT set: ALL BLIND rows, including the live forecast horizon at the
+    # end where y_true is still NaN (forward target not yet observed).
+    # Conformal tau is fit on calibration only — applying it to live rows is
+    # NOT BLIND peeking; it's just predicting the future with calibrated bands.
+    test_all = df[df["is_blind"]].copy()
+    n_live = int(test_all["y_true"].isna().sum())
+    print(f"Calibration rows (folds 1-3 OOF, 1999-2020):  {len(cal):,}")
+    print(f"BLIND test rows with observed y_true:         {len(test_obs):,}")
+    print(f"BLIND rows total (incl. live forecast tail):  {len(test_all):,}  (live tail rows: {n_live:,})")
 
     # Note: each row has all 4 horizons x 2 targets stacked via groupby below.
     rows_summary: list[dict] = []
     out_rows: list[dict] = []
 
-    for (h, t), g_test in test.groupby(["horizon", "target"]):
+    for (h, t), g_test in test_all.groupby(["horizon", "target"]):
         g_cal = cal[(cal["horizon"] == h) & (cal["target"] == t)]
         if g_cal.empty:
             continue
+        g_obs = g_test[g_test["y_true"].notna()]
+        rec = {"horizon": int(h), "target": t, "n_cal": len(g_cal),
+               "n_blind": len(g_obs), "n_live": int(len(g_test) - len(g_obs))}
 
-        rec = {"horizon": int(h), "target": t, "n_cal": len(g_cal), "n_blind": len(g_test)}
-
-        # Compute new intervals for each level
+        # Compute new intervals for each level (over ALL rows incl. live tail)
         adjusted = g_test.copy()
         for q_lo, q_hi, alpha in LEVELS:
             s = np.maximum(g_cal[q_lo] - g_cal["y_true"], g_cal["y_true"] - g_cal[q_hi]).to_numpy()
@@ -86,10 +95,12 @@ def main() -> None:
             new_lo = g_test[q_lo] - tau
             new_hi = g_test[q_hi] + tau
 
-            # Pre-conformal coverage
-            pre_cov = float(((g_test["y_true"] >= g_test[q_lo]) & (g_test["y_true"] <= g_test[q_hi])).mean())
-            # Post-conformal coverage
-            post_cov = float(((g_test["y_true"] >= new_lo) & (g_test["y_true"] <= new_hi)).mean())
+            # Coverage metrics computed ONLY on observed-y rows (live rows
+            # have no truth to compare against).
+            pre_cov = float(((g_obs["y_true"] >= g_obs[q_lo]) & (g_obs["y_true"] <= g_obs[q_hi])).mean()) if len(g_obs) else float("nan")
+            new_lo_obs = g_obs[q_lo] - tau
+            new_hi_obs = g_obs[q_hi] + tau
+            post_cov = float(((g_obs["y_true"] >= new_lo_obs) & (g_obs["y_true"] <= new_hi_obs)).mean()) if len(g_obs) else float("nan")
             pre_width = float((g_test[q_hi] - g_test[q_lo]).median())
             post_width = float((new_hi - new_lo).median())
 
@@ -164,8 +175,9 @@ def main() -> None:
                             label="pre-conformal 90%")
             ax.plot(g["date"], g["q50"], color="steelblue", lw=1.0, label="median")
             ax.plot(g["date"], g["y_true"], color="black", lw=0.8, label="actual")
-            inside_pre  = ((g["y_true"] >= g["q05_orig"]) & (g["y_true"] <= g["q95_orig"])).mean()
-            inside_post = ((g["y_true"] >= g["q05_conf"]) & (g["y_true"] <= g["q95_conf"])).mean()
+            g_obs = g.dropna(subset=["y_true"])
+            inside_pre  = ((g_obs["y_true"] >= g_obs["q05_orig"]) & (g_obs["y_true"] <= g_obs["q95_orig"])).mean() if len(g_obs) else float("nan")
+            inside_post = ((g_obs["y_true"] >= g_obs["q05_conf"]) & (g_obs["y_true"] <= g_obs["q95_conf"])).mean() if len(g_obs) else float("nan")
             ax.set_title(f"{t} h={h}d   pre cov90={inside_pre:.3f}   post cov90={inside_post:.3f}")
             ax.legend(loc="upper left", fontsize=8)
         fig.suptitle(f"Conformal recalibration on BLIND — {t}", fontsize=12)
