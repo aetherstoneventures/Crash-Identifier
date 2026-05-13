@@ -123,7 +123,7 @@ venv/bin/python3 -W ignore scripts/forward_risk/conformal_recalibrate.py
 ```
 
 Shipped artifacts (committed to repo):
-- `data/processed/forward_risk_predictions_conformal.parquet` — long-format predictions w/ original + conformal-adjusted quantiles, every date 2020-01-04 → 2026-04-27, every horizon × target. The dashboard filters to h=21.
+- `data/processed/forward_risk_predictions_conformal.parquet` — long-format predictions w/ original + conformal-adjusted quantiles, every BLIND date 2021-01-04 → 2026-04-27 (10,672 rows = 1,334 dates × 4 horizons × 2 targets; includes the live forecast tail where `y_true` is NaN), every horizon × target. The dashboard filters to h=21.
 - `data/processed/forward_risk_conformal_summary.csv` — per-cell pre/post coverage and CI widths.
 
 Reproducible artifacts (gitignored):
