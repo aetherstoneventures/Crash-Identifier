@@ -207,13 +207,14 @@ def render() -> None:
     try:
         with sqlite3.connect(str(DB_PATH)) as conn:
             v5 = pd.read_sql(
-                "SELECT date, ensemble_v5_proba FROM model_predictions "
-                "WHERE ensemble_v5_proba IS NOT NULL "
-                "ORDER BY date DESC LIMIT 1",
+                "SELECT prediction_date AS date, crash_probability "
+                "FROM predictions WHERE model_version = 'v5' "
+                "AND crash_probability IS NOT NULL "
+                "ORDER BY prediction_date DESC LIMIT 1",
                 conn, parse_dates=["date"],
             )
         if len(v5):
-            v5_p = float(v5["ensemble_v5_proba"].iloc[0])
+            v5_p = float(v5["crash_probability"].iloc[0])
             v5_d = pd.to_datetime(v5["date"].iloc[0]).date().isoformat()
         else:
             v5_p, v5_d = float("nan"), "n/a"
