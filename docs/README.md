@@ -1,16 +1,23 @@
 # Documentation Index
 
+> Production reference for the current system:
+> - **[V5_HONEST_SCORECARD.md](V5_HONEST_SCORECARD.md)** — what v5 actually does on BLIND (near-coincident regime detector, median lead −9d)
+> - **[FORWARD_RISK.md](FORWARD_RISK.md)** — 1-month probabilistic forecast (only h=21 ships; h=63/126/252 SHELVED)
+> - **[FUTURE_WORK_RESULTS.md](FUTURE_WORK_RESULTS.md)** — v5.1 / v6 / v5_multi all FAILED BLIND kill criteria
+> - **[V6_NEGATIVE_RESULT.md](V6_NEGATIVE_RESULT.md)** — predictive-label experiment, killed
+>
+> The files below are kept for historical context but are **stale (pre-v5 era)**.
+
 ## 🚀 Quick Start
 - **[QUICK_START_GUIDE.md](QUICK_START_GUIDE.md)** - Get started in 5 minutes
 
-## 🏗️ Architecture & Design
-- **[ARCHITECTURE.md](ARCHITECTURE.md)** - System architecture and components
-- **[METHODOLOGY.md](METHODOLOGY.md)** - Prediction methodology and algorithms
+## 🏗️ Architecture & Design (historical)
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** - Legacy 5-ML system architecture
+- **[METHODOLOGY.md](METHODOLOGY.md)** - Legacy statistical / GB+RF methodology
 
 ## 📚 Reference Documentation
 - **[HISTORICAL_CRASHES_REFERENCE.md](HISTORICAL_CRASHES_REFERENCE.md)** - 11 documented market crashes (1980-2022)
-- **[MODEL_SELECTION_FAQ.md](MODEL_SELECTION_FAQ.md)** - FAQ about model selection
-- **[REPRODUCIBILITY_GUIDE.md](REPRODUCIBILITY_GUIDE.md)** - How to reproduce all results
+- **[REPRODUCIBILITY_GUIDE.md](REPRODUCIBILITY_GUIDE.md)** - (historical) v2 pipeline reproduction
 
 ---
 

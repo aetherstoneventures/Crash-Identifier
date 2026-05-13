@@ -1,11 +1,19 @@
-"""
-Evaluate crash detection performance against 11 historical crashes.
+"""STALE — historical evaluator for the legacy 5-ML system.
 
-Metrics:
-- Recall: % of crashes detected
-- Precision: % of detections that are true crashes
-- F1-Score: Harmonic mean of recall and precision
-- Days before crash: How many days before crash was detected
+DO NOT USE this script as the source of truth for current model performance.
+It evaluates legacy predictions against the (now deduplicated) crash_events
+table using a 60-day pre-crash window, which is NOT how the production v5
+ensemble is scored. See instead:
+
+    docs/V5_HONEST_SCORECARD.md   (v5 walk-forward BLIND scorecard)
+    docs/FORWARD_RISK.md          (1-month probabilistic forecast)
+    docs/FUTURE_WORK_RESULTS.md   (v5.1 / v6 / v5_multi negative results)
+
+Kept in the repo for historical reference. Calls db.create_tables() at
+import-time has been removed so the script is read-only.
+
+Original metrics: recall / precision / F1 / days-before-crash against the
+11 hardcoded historical crashes from the legacy paradigm.
 """
 
 import sys
@@ -23,9 +31,9 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def evaluate_crash_detection():
-    """Evaluate crash detection against historical crashes."""
+    """Evaluate crash detection against historical crashes. STALE — see module docstring."""
     db = DatabaseManager()
-    db.create_tables()  # Ensure tables exist
+    # NOTE: removed db.create_tables() side effect — this script is now read-only.
 
     with db.get_session() as session:
         # Load crash events

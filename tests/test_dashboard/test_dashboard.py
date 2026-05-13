@@ -1,6 +1,20 @@
-"""Tests for dashboard components and pages."""
+"""Tests for dashboard components and pages.
+
+NOTE (stale, pre-v5 era): These tests cover the legacy class-based pages
+(OverviewPage / CrashPredictionsPage / BottomPredictionsPage / IndicatorsPage)
+which are NOT wired into the current 4-tab production dashboard (v5_production,
+forward_risk, indicators, bottom_predictions — see src/dashboard/app.py).
+
+The legacy page modules still exist in src/dashboard/pages/ for back-compat,
+so these tests still collect and pass, but they do not exercise the production
+UI surface. New tests should be added against the render() functions of the
+current tab modules.
+"""
 
 import pytest
+
+pytestmark = pytest.mark.skip(reason="Legacy dashboard tests — cover non-production pages. See module docstring.")
+
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta

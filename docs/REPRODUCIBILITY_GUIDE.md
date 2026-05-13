@@ -1,3 +1,8 @@
+> ⚠️ **STALE — HISTORICAL DOCUMENT (pre-v5 era).**
+> Describes how to reproduce the legacy v2 "90.9% recall" pipeline that has been superseded. For the v5 production walk-forward and the Forward Risk reproducibility commands, see [V5_HONEST_SCORECARD.md](V5_HONEST_SCORECARD.md) and [FORWARD_RISK.md](FORWARD_RISK.md). Kept for historical reference.
+
+---
+
 # Reproducibility Guide: ML Model Improvement
 
 This guide shows how to reproduce the 90.9% recall improvement.

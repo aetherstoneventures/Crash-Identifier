@@ -1,3 +1,8 @@
+> ⚠️ **STALE — HISTORICAL DOCUMENT (pre-v5 era).**
+> Describes the legacy Statistical / GB+RF / threshold-rule methodology. The production v5 ensemble (XGBoost + StatV3 50/50) and the Forward Risk LightGBM quantile module replaced it; their honest scorecards live in [V5_HONEST_SCORECARD.md](V5_HONEST_SCORECARD.md), [FORWARD_RISK.md](FORWARD_RISK.md), [V6_NEGATIVE_RESULT.md](V6_NEGATIVE_RESULT.md), and [FUTURE_WORK_RESULTS.md](FUTURE_WORK_RESULTS.md). Kept for historical reference.
+
+---
+
 # Market Crash & Bottom Prediction System - Methodology
 
 ## 1. Statistical Crash Prediction Model

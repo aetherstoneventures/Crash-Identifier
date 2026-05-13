@@ -1,3 +1,8 @@
+> ⚠️ **STALE — HISTORICAL DOCUMENT (pre-v5 era).**
+> Describes the legacy 5-ML + 2-bottom + statistical architecture with 28 indicators. The production system has since converged on a single XGBoost+StatV3 v5 ensemble (walk-forward, no leakage) + a probabilistic Forward Risk module (h=21 only). For current behaviour see [V5_HONEST_SCORECARD.md](V5_HONEST_SCORECARD.md), [FORWARD_RISK.md](FORWARD_RISK.md), and [FUTURE_WORK_RESULTS.md](FUTURE_WORK_RESULTS.md). Kept for historical reference; do not treat as authoritative.
+
+---
+
 # Market Crash & Bottom Prediction System - Architecture
 
 **Last Updated**: October 25, 2025
