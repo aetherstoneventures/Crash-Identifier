@@ -1,0 +1,146 @@
+"""Centralised configuration for the v6 Crash KPI Engine.
+
+All hyperparameters, paths, and validation boundaries live here so the
+five engines, aggregator, and validation harness share one source of truth.
+"""
+from __future__ import annotations
+
+from pathlib import Path
+from dataclasses import dataclass, field
+from typing import Tuple
+
+# ---------------------------------------------------------------------------
+# Paths
+# ---------------------------------------------------------------------------
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+DATA_DIR = PROJECT_ROOT / "data"
+DB_PATH = DATA_DIR / "market_crash.db"
+ARTIFACTS_DIR = DATA_DIR / "v6_artifacts"
+ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
+
+# ---------------------------------------------------------------------------
+# Walk-forward + BLIND boundaries (locked, matching prior v5 protocol for
+# direct comparability)
+# ---------------------------------------------------------------------------
+WALK_FORWARD_FOLDS: Tuple[str, ...] = (
+    "1999-01-01",
+    "2005-01-01",
+    "2012-01-01",
+    "2020-01-01",
+)
+BLIND_START = "2021-01-01"
+
+# ---------------------------------------------------------------------------
+# Tunable user query defaults (these are inference-time parameters,
+# NOT training-time. Engine 3 is trained once and serves all (x, h) pairs.)
+# ---------------------------------------------------------------------------
+DEFAULT_X_PCT: float = 10.0          # drawdown threshold (percent)
+DEFAULT_HORIZON_DAYS: int = 63       # forecast horizon (trading days)
+SUPPORTED_X_PCT: Tuple[float, ...] = (2.0, 5.0, 10.0, 15.0, 20.0, 30.0)
+SUPPORTED_HORIZON_DAYS: Tuple[int, ...] = (21, 63, 126, 252)
+
+# Trading-day length used for episode duration filtering in the crash
+# extractor. Conservative: a "crash" must persist at least this long.
+DEFAULT_MIN_CRASH_DURATION_TD: int = 5
+
+# ---------------------------------------------------------------------------
+# Engine 1 — Density anomaly detector
+# ---------------------------------------------------------------------------
+@dataclass(frozen=True)
+class AnomalyConfig:
+    """Mahalanobis + IsolationForest ensemble."""
+    iso_n_estimators: int = 200
+    iso_contamination: float = 0.05
+    refit_every_days: int = 252  # annual re-fit
+    normal_buffer_td: int = 20    # exclude ±N days around past crashes
+    normal_buffer_x_pct: float = 10.0  # define "normal" as not within buffer of >=x% drawdown
+    alert_threshold: float = 0.99
+
+
+# ---------------------------------------------------------------------------
+# Engine 2 — Regime-switching HMM
+# ---------------------------------------------------------------------------
+@dataclass(frozen=True)
+class RegimeConfig:
+    """Gaussian HMM on reduced macro/vol feature set."""
+    n_states: int = 4
+    refit_every_days: int = 63    # quarterly re-fit
+    em_iterations: int = 100
+    random_state: int = 42
+
+
+# ---------------------------------------------------------------------------
+# Engine 3 — Analog matcher
+# ---------------------------------------------------------------------------
+@dataclass(frozen=True)
+class AnalogConfig:
+    """Weighted-Mahalanobis k-NN (LMNN-optional) with empirical forward CDF."""
+    k_neighbors: int = 50
+    refit_every_days: int = 252
+    use_lmnn: bool = False   # If True and metric-learn installed, use LMNN
+    min_distance_eps: float = 1e-6
+
+
+# ---------------------------------------------------------------------------
+# Engine 4 — Causal / structural factor model
+# ---------------------------------------------------------------------------
+@dataclass(frozen=True)
+class CausalConfig:
+    """Dynamic factor model + Granger causality network."""
+    n_factors: int = 5
+    granger_lag: int = 5
+    rolling_window_td: int = 252
+    refit_every_days: int = 63
+
+
+# ---------------------------------------------------------------------------
+# Engine 5 — Bayesian aggregator
+# ---------------------------------------------------------------------------
+@dataclass(frozen=True)
+class AggregatorConfig:
+    """Bayesian model averaging with per-engine Beta-Binomial calibration."""
+    beta_prior_alpha: float = 1.0
+    beta_prior_beta: float = 1.0
+    min_weight: float = 0.05
+
+
+# ---------------------------------------------------------------------------
+# Layer 1/2/3 gate
+# ---------------------------------------------------------------------------
+@dataclass(frozen=True)
+class GateConfig:
+    """Simultaneous-agreement gate ('100% agreement' constraint)."""
+    posterior_threshold: float = 0.60
+    confidence_threshold: float = 0.50
+    layer1_z_threshold: float = 1.5
+    layer2_z_threshold: float = 1.5
+    layer3_dd_threshold: float = 2.0  # percent, current drawdown trigger
+
+
+# ---------------------------------------------------------------------------
+# Kill criteria (pre-declared, single-shot evaluation on BLIND >= 2021-01-01)
+# ---------------------------------------------------------------------------
+@dataclass(frozen=True)
+class KillCriteria:
+    max_calibration_error_pp: float = 10.0   # reliability slope in [0.5, 1.5]
+    min_cagr_delta_vs_bh_pp: float = -2.0
+    max_maxdd_ratio_vs_bh: float = 1.10
+    max_gate_fire_pct: float = 10.0
+    min_gate_fire_pct: float = 0.10
+
+
+# ---------------------------------------------------------------------------
+# Top-level config bundle
+# ---------------------------------------------------------------------------
+@dataclass(frozen=True)
+class V6Config:
+    anomaly: AnomalyConfig = field(default_factory=AnomalyConfig)
+    regime: RegimeConfig = field(default_factory=RegimeConfig)
+    analog: AnalogConfig = field(default_factory=AnalogConfig)
+    causal: CausalConfig = field(default_factory=CausalConfig)
+    aggregator: AggregatorConfig = field(default_factory=AggregatorConfig)
+    gate: GateConfig = field(default_factory=GateConfig)
+    kill: KillCriteria = field(default_factory=KillCriteria)
+
+
+CONFIG = V6Config()
