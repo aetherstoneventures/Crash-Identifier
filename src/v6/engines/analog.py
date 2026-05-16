@@ -231,6 +231,8 @@ class AnalogEngine:
         k = self.cfg.k_neighbors
         probs = np.full(T, np.nan)
         confs = np.full(T, np.nan)
+        if self.train_Xz_.shape[0] == 0:
+            return pd.DataFrame({"prob": probs, "confidence": confs}, index=features.index)
         fwd = self.forward_maxdd_[horizon_td]
         for i in range(T):
             diff = self.train_Xz_ - Xz[i]

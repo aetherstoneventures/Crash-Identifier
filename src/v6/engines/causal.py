@@ -97,10 +97,17 @@ class CausalEngine:
         # vol, rates, credit are levels -> first-difference (or change ratio)
         return s.diff()
 
-    def _build_returns(self, raw: pd.DataFrame) -> pd.DataFrame:
-        """Pick available causal-asset columns and convert to changes."""
+    def _build_returns(self, raw: pd.DataFrame, lock_to_fit: bool = False) -> pd.DataFrame:
+        """Pick available causal-asset columns and convert to changes.
+
+        If `lock_to_fit` is True, restrict to the asset columns used during
+        fit (so scoring on a wider date range doesn't pick up extra assets
+        that became available later).
+        """
         cols: Dict[str, pd.Series] = {}
-        for asset_name, col_name in CAUSAL_ASSETS.items():
+        candidates = self.asset_cols_ if lock_to_fit and self.asset_cols_ else list(CAUSAL_ASSETS.keys())
+        for asset_name in candidates:
+            col_name = CAUSAL_ASSETS[asset_name]
             if col_name in raw.columns and raw[col_name].notna().sum() >= 252:
                 cols[asset_name] = self._series_to_change(asset_name, raw[col_name])
         if len(cols) < 3:
@@ -108,7 +115,8 @@ class CausalEngine:
                 f"CausalEngine needs ≥3 causal assets with sufficient data; got {len(cols)}."
             )
         df = pd.DataFrame(cols)
-        self.asset_cols_ = list(df.columns)
+        if not lock_to_fit:
+            self.asset_cols_ = list(df.columns)
         return df
 
     @staticmethod
@@ -191,7 +199,7 @@ class CausalEngine:
         """
         if self._baseline_corr_ is None:
             raise RuntimeError("Engine not fit. Call .fit() first.")
-        returns = self._build_returns(raw).dropna()
+        returns = self._build_returns(raw, lock_to_fit=True).dropna()
         w = self.cfg.rolling_window_td
         T = len(returns)
         conn_arr = np.full(T, np.nan)

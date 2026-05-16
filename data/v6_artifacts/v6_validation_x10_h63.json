@@ -1,0 +1,98 @@
+{
+  "x_pct": 10.0,
+  "horizon_td": 63,
+  "walkforward": {
+    "x_pct": 10.0,
+    "horizon_td": 63,
+    "fold_reports": [
+      {
+        "fold": 1,
+        "cutoff": "1999-01-01",
+        "n_days": 1420,
+        "n_fires": 0,
+        "n_crash_days": 0,
+        "fire_pct": 0.0,
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 1420,
+        "precision": NaN,
+        "recall": NaN
+      },
+      {
+        "fold": 2,
+        "cutoff": "2005-01-01",
+        "n_days": 1673,
+        "n_fires": 0,
+        "n_crash_days": 0,
+        "fire_pct": 0.0,
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 1673,
+        "precision": NaN,
+        "recall": NaN
+      },
+      {
+        "fold": 3,
+        "cutoff": "2012-01-01",
+        "n_days": 1870,
+        "n_fires": 0,
+        "n_crash_days": 128,
+        "fire_pct": 0.0,
+        "tp": 0,
+        "fp": 0,
+        "fn": 128,
+        "tn": 1742,
+        "precision": NaN,
+        "recall": 0.0
+      },
+      {
+        "fold": 4,
+        "cutoff": "2020-01-01",
+        "n_days": 1489,
+        "n_fires": 8,
+        "n_crash_days": 158,
+        "fire_pct": 0.5372733378106112,
+        "tp": 0,
+        "fp": 8,
+        "fn": 158,
+        "tn": 1323,
+        "precision": 0.0,
+        "recall": 0.0
+      }
+    ],
+    "pooled": {
+      "n_days": 6452,
+      "n_fires": 8,
+      "n_crash_days": 320,
+      "fire_pct": 0.12399256044637322,
+      "tp": 0,
+      "fp": 8,
+      "fn": 320,
+      "tn": 6124,
+      "precision": 0.0,
+      "recall": 0.0
+    },
+    "calibration": [
+      {
+        "posterior_mean": "(0.4, 0.5]",
+        "predicted_mean": "0.4662002828548312",
+        "empirical_rate": "0.12479338842975207",
+        "n": "2420"
+      },
+      {
+        "posterior_mean": "(0.5, 0.6]",
+        "predicted_mean": "0.5502367655260159",
+        "empirical_rate": "0.005772931366260423",
+        "n": "3118"
+      },
+      {
+        "posterior_mean": "(0.6, 0.7]",
+        "predicted_mean": "0.6111147878355527",
+        "empirical_rate": "0.0",
+        "n": "914"
+      }
+    ]
+  }
+}
