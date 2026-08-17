@@ -1,21 +1,76 @@
-Copyright © 2026 Pouya Mahdavipour Vahdati (Aetherstone Ventures). All Rights Reserved.
+# PROPRIETARY LICENSE AND ALL RIGHTS RESERVED NOTICE
 
-This software, its source code, documentation, and all related materials (collectively, the "Work") are proprietary and confidential. No license is granted under any circumstances except by a separate written agreement signed by the copyright holder.
+**Copyright © 2026 Pouya Mahdavipour Vahdati, trading under the business designation "Aetherstone Ventures." All Rights Reserved.**
 
-The Work is not open source. All rights are reserved under applicable copyright, trade secret, and other intellectual property laws.
+This notice governs the software, source code, object code, documentation, designs, data, and all related materials contained in this repository (collectively, the "Work"). The Work is the sole and exclusive intellectual property of Pouya Mahdavipour Vahdati (the "Owner"), an individual residing in Munich, Germany. "Aetherstone Ventures" is used solely as a business designation of the Owner and is not a separate legal entity; all rights, obligations, and legal standing under this notice vest exclusively in the Owner as a natural person.
 
-Without express prior written permission from the copyright holder, you may not (and you agree not to):
+## 1. No License Granted
 
-• copy, reproduce, modify, adapt, translate, or create derivative works;
-• distribute, sublicense, sell, lease, or otherwise commercially exploit the Work or any portion of it;
-• use the Work (or any portion of it) in any product, service, application, business, or venture that generates or is intended to generate revenue or other financial benefit.
+NO LICENSE, RIGHT, OR PERMISSION OF ANY KIND IS GRANTED TO ANY PERSON UNDER ANY CIRCUMSTANCES, except pursuant to a separate written agreement signed by the Owner. The Work is not open source, freeware, shareware, or public domain. All rights not expressly and explicitly granted in a signed written agreement are reserved by the Owner under applicable copyright law (including the German Copyright Act, Urheberrechtsgesetz), trade secret law, unfair competition law, and all other applicable intellectual property laws.
 
-Any commercial use, profitable exploitation, or incorporation of the Work into a business (including but not limited to SaaS products, mobile apps, websites, tools, or any revenue-generating activity) requires a separate commercial licensing agreement. Such an agreement must be negotiated directly with the copyright holder and may include compensation terms such as upfront license fees, ongoing royalties based on gross or net revenue, equity participation, profit-sharing arrangements, or other financial terms that allow the copyright holder to participate in the positive financial outcomes derived from the use of the Work.
+## 2. Access Does Not Imply License
 
-Unauthorized use constitutes copyright infringement and may result in legal action to the fullest extent permitted by law.
+Being granted access to this repository — including but not limited to read access, collaborator status, push/pull permissions, or receipt of any copy of the Work by any means — does **not** constitute, imply, or create any license, permission, or right to use, copy, retain, or exploit the Work in any way. Access is granted solely at the Owner's discretion for the limited purpose (if any) explicitly communicated by the Owner in writing, and may be revoked at any time without notice.
 
-For licensing inquiries, commercial permissions, or to negotiate terms, please contact the copyright holder directly at:
+## 3. Prohibited Acts
 
-aetherstoneventures@gmail.com
+Without the Owner's express prior written permission, no person may, and each person accessing the Work agrees not to:
 
-This notice applies to the entire repository and all files within it unless explicitly stated otherwise in a separate agreement.
+- copy, reproduce, cache, mirror, download, or retain the Work beyond the minimum necessary for any expressly authorized purpose;
+- modify, adapt, translate, reverse-engineer, decompile, disassemble, or create derivative works based on the Work, in whole or in part;
+- distribute, publish, disclose, sublicense, sell, lease, rent, or otherwise transfer or commercially exploit the Work or any portion of it;
+- use the Work, or any portion, concept, algorithm, structure, or output derived from it, in any product, service, application, business, research output, or venture that generates or is intended to generate revenue, funding, equity, or any other financial or reputational benefit;
+- remove, obscure, or alter any copyright, proprietary, or attribution notice contained in the Work;
+- disclose the existence, contents, or design of the Work to any third party without the Owner's prior written consent.
+
+## 4. Confidentiality
+
+Any person granted access to the Work (a "Recipient") acknowledges that the Work constitutes confidential and proprietary trade secret information of the Owner. Recipient agrees to hold the Work in strict confidence, to use at least the same degree of care used to protect Recipient's own most sensitive confidential information (and in no event less than reasonable care), and not to disclose the Work to any third party without the Owner's prior written consent. This confidentiality obligation survives indefinitely and is not limited by any termination of access.
+
+## 5. Commercial Licensing
+
+Any commercial use, revenue-generating use, or incorporation of the Work into a business — including but not limited to SaaS products, mobile applications, websites, internal tools, consulting deliverables, or any other revenue-generating or fundraising activity — requires a separate, signed commercial licensing agreement negotiated directly with the Owner. Such agreements may include upfront license fees, ongoing royalties on gross or net revenue, equity participation, profit-sharing, or other financial terms enabling the Owner to participate in the financial outcomes derived from use of the Work.
+
+## 6. No Waiver; Severability
+
+The Owner's failure to enforce any provision of this notice at any time does not waive the Owner's right to enforce that or any other provision later. If any provision of this notice is held invalid or unenforceable by a court of competent jurisdiction, that provision shall be limited or eliminated to the minimum extent necessary, and the remaining provisions shall remain in full force and effect.
+
+## 7. Remedies
+
+Unauthorized use, reproduction, distribution, or exploitation of the Work constitutes copyright infringement, misappropriation of trade secrets, and/or breach of contract, and may result in civil and criminal liability. The Owner reserves the right to seek injunctive relief, actual and statutory damages, disgorgement of profits, and reasonable attorneys' fees and costs, to the fullest extent permitted by law, without prejudice to any other remedy available.
+
+## 8. Governing Law and Jurisdiction
+
+This notice and any dispute or claim arising out of or in connection with it (including non-contractual disputes) shall be governed by and construed in accordance with the laws of the Federal Republic of Germany, without regard to conflict-of-law principles or the UN Convention on Contracts for the International Sale of Goods. The parties submit to the exclusive jurisdiction of the courts of Munich, Germany, for the resolution of any such dispute.
+
+## 9. Entire Notice
+
+This document constitutes the entire notice regarding rights in the Work between the Owner and any Recipient, and supersedes any prior or contemporaneous understanding, whether written or oral, unless explicitly superseded by a separate signed agreement.
+
+## 10. Contact
+
+For licensing inquiries, commercial permissions, or to negotiate terms, contact the Owner directly at: aetherstoneventures@gmail.com
+
+*This notice applies to the entire repository and all files within it unless explicitly and specifically superseded in writing by the Owner for a given file or component.*
+
+---
+
+# CONTRIBUTOR AGREEMENT ADDENDUM
+
+*(To be signed — email confirmation is sufficient — by any individual before they push, submit, or otherwise contribute code, documentation, or other material to this repository.)*
+
+By contributing any code, documentation, designs, ideas, or other material (a "Contribution") to this repository, the person making the Contribution (the "Contributor") agrees as follows:
+
+**1. Assignment of Rights.** Contributor irrevocably assigns to Pouya Mahdavipour Vahdati (the "Owner") all right, title, and interest worldwide in and to the Contribution, including all copyright, trade secret, and other intellectual property rights therein, effective immediately upon the Contribution being made. To the extent such assignment is not fully effective under applicable law, Contributor grants the Owner an exclusive, perpetual, irrevocable, worldwide, royalty-free, fully paid-up, sublicensable, and transferable license to use, reproduce, modify, distribute, and commercially exploit the Contribution in any manner.
+
+**2. No Retained Rights.** Contributor retains no right to independently use, reproduce, distribute, or commercially exploit the Contribution, or any project incorporating the Contribution, outside of this project, except as separately agreed in writing with the Owner.
+
+**3. Originality Warranty.** Contributor represents and warrants that the Contribution is Contributor's own original work, that Contributor has the full right and authority to make this assignment, and that the Contribution does not knowingly infringe any third party's intellectual property or other rights.
+
+**4. Attribution (Non-Binding on Ownership).** The Owner may, at their sole discretion, credit Contributor by name for their Contribution. Such attribution is a courtesy only and does not create or imply any ownership, licensing, revenue-sharing, or equity right in favor of Contributor.
+
+**5. Confidentiality.** Contributor agrees to the confidentiality obligations set out in Section 4 of the Proprietary License above, which apply equally to Contributor for as long as Contributor has access to the repository and indefinitely thereafter.
+
+**6. Governing Law.** This addendum is governed by the laws of Germany, with exclusive jurisdiction in the courts of Munich, consistent with Section 8 of the Proprietary License above.
+
+*Confirmation of agreement (e.g., by email reply "I agree to the Contributor Agreement" before first push, or a signed copy of this document) should be kept on file by the Owner as evidence of consent.*
