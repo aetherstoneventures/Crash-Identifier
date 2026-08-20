@@ -486,3 +486,31 @@ been reached:
   that is not strictly after the lock date.
 
 The remaining step is not a code change. It is **waiting for data**.
+
+---
+
+## ITER-011 — Merge to `main` ✅ **OWNER APPROVED**
+
+**Date:** 2026-08-20
+
+Design doc §10 requires *"a BLIND verdict AND explicit owner approval"* before
+merging to `main`. The owner approved the merge on the following basis, which
+is recorded here so the reasoning survives the decision:
+
+**The merge is justified by the engineering, not by the model.** The previous
+`main` contained the actual defects catalogued in
+[V6_POSTMORTEM.md](V6_POSTMORTEM.md) — a price column with ten years of
+history, look-ahead in every monthly macro series, fabricated columns modelled
+as real data, and an aggregator that could not fire. Those are correctness
+bugs, and leaving them in `main` to preserve a protocol about *model*
+validation would be honouring the letter of §10 against its purpose.
+
+**What the merge does not claim.** It does not certify the v6 model. The BLIND
+pass remains contaminated, post-search, and thin-margin (slope 0.525 against a
+0.500 floor). `README.md` now opens with a status banner making the
+distinction explicit: `main` carries the v6 codebase, not a validated model.
+
+**What still gates a production claim:** `scripts/v6/holdout_eval.py` against
+the frozen `v6.2.0` config, once ~126 trading days of data have accrued past
+the 2026-08-19 lock date. That remains the only route to a real verdict, and
+merging does not shorten it.

@@ -1,5 +1,14 @@
 # Crash-Identifier — v6 Crash KPI Engine
 
+> **Status of `main`:** `main` carries the v6 **codebase**, not a validated
+> **model**. It was merged for the engineering — the data repair, the leakage
+> fixes, the quality screen, the test suite and the freeze machinery — all of
+> which supersede real defects that the previous `main` still contained.
+> The v6 *model* has not passed a clean out-of-sample verdict, and the
+> caveats below are not boilerplate. Nothing here is production-ready for
+> trading decisions.
+
+
 A crash detector for the US equity market (Nasdaq Composite, 1971–present).
 
 Five engines score every trading day, a calibrated Bayesian aggregator pools
