@@ -6,93 +6,781 @@
     "horizon_td": 63,
     "fold_reports": [
       {
+        "metrics": {
+          "n_days": 1566,
+          "n_scorable": 1566,
+          "n_fires": 0,
+          "n_crash_days": 944,
+          "base_rate": 0.6028097062579821,
+          "fire_pct": 0.0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 944,
+          "tn": 622,
+          "precision": null,
+          "recall": 0.0,
+          "f1": null,
+          "precision_lift": null,
+          "x_pct": 10.0
+        },
+        "lead_times": {
+          "n_fires_with_event": 0,
+          "median_lead_td": null,
+          "mean_lead_td": null
+        },
+        "calibration_summary": {
+          "brier": 0.3950847973359252,
+          "log_loss": 1.0498548940522756,
+          "reliability_slope": 2.0456600857281537,
+          "reliability_intercept": 0.21753096873151861,
+          "base_rate": 0.6028097062579821,
+          "brier_skill_score": -0.6501045241830965
+        },
+        "calibration_table": [
+          {
+            "posterior_mean": "(-0.001, 0.1]",
+            "predicted_mean": "0.08323638085102338",
+            "empirical_rate": "0.22435897435897437",
+            "n": "156"
+          },
+          {
+            "posterior_mean": "(0.1, 0.2]",
+            "predicted_mean": "0.1594867632167947",
+            "empirical_rate": "0.5750487329434698",
+            "n": "513"
+          },
+          {
+            "posterior_mean": "(0.2, 0.3]",
+            "predicted_mean": "0.2308567814958938",
+            "empirical_rate": "0.6845039018952063",
+            "n": "897"
+          }
+        ],
+        "backtest": {
+          "strategy_cagr_pct": -0.12701605589383602,
+          "strategy_vol_pct": 34.03632264074913,
+          "strategy_sharpe": 0.16582273644884715,
+          "strategy_sortino": 0.258947410314388,
+          "strategy_maxdd_pct": -77.93238548355788,
+          "buyhold_cagr_pct": -0.12701605589383602,
+          "buyhold_vol_pct": 34.03632264074913,
+          "buyhold_sharpe": 0.16582273644884715,
+          "buyhold_sortino": 0.258947410314388,
+          "buyhold_maxdd_pct": -77.93238548355788,
+          "n_switches": 0,
+          "time_in_market_pct": 100.0,
+          "cagr_delta_pp": 0.0,
+          "maxdd_ratio": 1.0
+        },
+        "kill_passes": false,
+        "kill_fails": [
+          "[1] reliability slope 2.046 outside [0.5, 1.5]",
+          "[5] gate fires 0.00% < min 0.1%"
+        ],
+        "kill_notes": [
+          "[2] CAGR +0.00pp vs B&H OK",
+          "[3] MaxDD ratio 1.000 OK",
+          "[4] max engine weight 0.250 OK"
+        ],
         "fold": 1,
         "cutoff": "1999-01-01",
-        "n_days": 1420,
-        "n_fires": 0,
-        "n_crash_days": 0,
-        "fire_pct": 0.0,
-        "tp": 0,
-        "fp": 0,
-        "fn": 0,
-        "tn": 1420,
-        "precision": NaN,
-        "recall": NaN
+        "pipeline": {
+          "price_column": "nasdaq_close",
+          "fit_through": "1998-12-31",
+          "n_feature_dates": 14394,
+          "engine_errors": {},
+          "base_rate": 0.21911632100991885,
+          "weights": {
+            "anomaly": 0.25,
+            "regime": 0.25,
+            "analog": 0.25,
+            "causal": 0.25
+          },
+          "skill": {
+            "anomaly": 0.0,
+            "regime": 0.0,
+            "analog": 0.0,
+            "causal": 0.0
+          },
+          "gate": {
+            "source": "GateConfig defaults (not tuned)",
+            "layer1": 1.5,
+            "layer2": 1.5,
+            "layer3": 2.0,
+            "posterior": 0.6,
+            "confidence": 0.5,
+            "status": "no admissible threshold; using GateConfig"
+          }
+        }
       },
       {
+        "metrics": {
+          "n_days": 1825,
+          "n_scorable": 1825,
+          "n_fires": 0,
+          "n_crash_days": 596,
+          "base_rate": 0.3265753424657534,
+          "fire_pct": 0.0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 596,
+          "tn": 1229,
+          "precision": null,
+          "recall": 0.0,
+          "f1": null,
+          "precision_lift": null,
+          "x_pct": 10.0
+        },
+        "lead_times": {
+          "n_fires_with_event": 0,
+          "median_lead_td": null,
+          "mean_lead_td": null
+        },
+        "calibration_summary": {
+          "brier": 0.2084843783574534,
+          "log_loss": 0.6080728583126346,
+          "reliability_slope": 1.2529528474679021,
+          "reliability_intercept": -0.06787871889102806,
+          "base_rate": 0.3265753424657534,
+          "brier_skill_score": 0.05201576735219715
+        },
+        "calibration_table": [
+          {
+            "posterior_mean": "(0.1, 0.2]",
+            "predicted_mean": "0.19421596616081235",
+            "empirical_rate": "0.4583333333333333",
+            "n": "24"
+          },
+          {
+            "posterior_mean": "(0.2, 0.3]",
+            "predicted_mean": "0.25271602828404965",
+            "empirical_rate": "0.24865831842576028",
+            "n": "1118"
+          },
+          {
+            "posterior_mean": "(0.3, 0.4]",
+            "predicted_mean": "0.33233176926628294",
+            "empirical_rate": "0.34593023255813954",
+            "n": "344"
+          },
+          {
+            "posterior_mean": "(0.4, 0.5]",
+            "predicted_mean": "0.4687605642959267",
+            "empirical_rate": "0.5655172413793104",
+            "n": "145"
+          },
+          {
+            "posterior_mean": "(0.5, 0.6]",
+            "predicted_mean": "0.5049952873895245",
+            "empirical_rate": "0.5463917525773195",
+            "n": "194"
+          }
+        ],
+        "backtest": {
+          "strategy_cagr_pct": 2.6727810739311852,
+          "strategy_vol_pct": 24.01832778466,
+          "strategy_sharpe": 0.229954326704739,
+          "strategy_sortino": 0.2959441534030101,
+          "strategy_maxdd_pct": -55.62830521279276,
+          "buyhold_cagr_pct": 2.6727810739311852,
+          "buyhold_vol_pct": 24.01832778466,
+          "buyhold_sharpe": 0.229954326704739,
+          "buyhold_sortino": 0.2959441534030101,
+          "buyhold_maxdd_pct": -55.62830521279276,
+          "n_switches": 0,
+          "time_in_market_pct": 100.0,
+          "cagr_delta_pp": 0.0,
+          "maxdd_ratio": 1.0
+        },
+        "kill_passes": false,
+        "kill_fails": [
+          "[5] gate fires 0.00% < min 0.1%"
+        ],
+        "kill_notes": [
+          "[1] reliability slope 1.253 OK",
+          "[2] CAGR +0.00pp vs B&H OK",
+          "[3] MaxDD ratio 1.000 OK",
+          "[4] max engine weight 0.250 OK"
+        ],
         "fold": 2,
         "cutoff": "2005-01-01",
-        "n_days": 1673,
-        "n_fires": 0,
-        "n_crash_days": 0,
-        "fire_pct": 0.0,
-        "tp": 0,
-        "fp": 0,
-        "fn": 0,
-        "tn": 1673,
-        "precision": NaN,
-        "recall": NaN
+        "pipeline": {
+          "price_column": "nasdaq_close",
+          "fit_through": "2004-12-31",
+          "n_feature_dates": 14394,
+          "engine_errors": {},
+          "base_rate": 0.34804823216840386,
+          "weights": {
+            "anomaly": 0.25,
+            "regime": 0.25,
+            "analog": 0.25,
+            "causal": 0.25
+          },
+          "skill": {
+            "anomaly": 0.0,
+            "regime": 0.0,
+            "analog": 0.0,
+            "causal": 0.0
+          },
+          "gate": {
+            "source": "tuned on training window",
+            "layer1": 1.5610576755126415,
+            "layer2": 0.8459390101018814,
+            "layer3": 2.0,
+            "posterior": 0.39200846554527774,
+            "confidence": 0.5,
+            "quantile": 0.75,
+            "train_fire_rate": 0.014919272430002043
+          }
+        }
       },
       {
+        "metrics": {
+          "n_days": 2088,
+          "n_scorable": 2088,
+          "n_fires": 10,
+          "n_crash_days": 368,
+          "base_rate": 0.17624521072796934,
+          "fire_pct": 0.4789272030651341,
+          "tp": 0,
+          "fp": 10,
+          "fn": 368,
+          "tn": 1710,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": null,
+          "precision_lift": 0.0,
+          "x_pct": 10.0
+        },
+        "lead_times": {
+          "n_fires_with_event": 0,
+          "median_lead_td": null,
+          "mean_lead_td": null
+        },
+        "calibration_summary": {
+          "brier": 0.157210074240252,
+          "log_loss": 0.49686383556116004,
+          "reliability_slope": 1.080247928789447,
+          "reliability_intercept": -0.1385020338078163,
+          "base_rate": 0.17624521072796934,
+          "brier_skill_score": -0.08284200882914106
+        },
+        "calibration_table": [
+          {
+            "posterior_mean": "(0.2, 0.3]",
+            "predicted_mean": "0.2664607862855148",
+            "empirical_rate": "0.1493354182955434",
+            "n": "1279"
+          },
+          {
+            "posterior_mean": "(0.3, 0.4]",
+            "predicted_mean": "0.33108581468350207",
+            "empirical_rate": "0.2191780821917808",
+            "n": "803"
+          },
+          {
+            "posterior_mean": "(0.4, 0.5]",
+            "predicted_mean": "0.4394893322714944",
+            "empirical_rate": "0.16666666666666666",
+            "n": "6"
+          }
+        ],
+        "backtest": {
+          "strategy_cagr_pct": 13.415935515629185,
+          "strategy_vol_pct": 14.335323460081067,
+          "strategy_sharpe": 0.9502706689691551,
+          "strategy_sortino": 1.1737892133149765,
+          "strategy_maxdd_pct": -23.684277019824673,
+          "buyhold_cagr_pct": 16.096913143488976,
+          "buyhold_vol_pct": 15.067151958826125,
+          "buyhold_sharpe": 1.066343808592247,
+          "buyhold_sortino": 1.3680035537903623,
+          "buyhold_maxdd_pct": -23.635552037130914,
+          "n_switches": 6,
+          "time_in_market_pct": 95.6896551724138,
+          "cagr_delta_pp": -2.680977627859791,
+          "maxdd_ratio": 1.0020615123614296
+        },
+        "kill_passes": false,
+        "kill_fails": [
+          "[2] CAGR -2.68pp vs B&H < -2.0pp"
+        ],
+        "kill_notes": [
+          "[1] reliability slope 1.080 OK",
+          "[3] MaxDD ratio 1.002 OK",
+          "[4] max engine weight 0.450 OK",
+          "[5] gate fire rate 0.48% OK"
+        ],
         "fold": 3,
         "cutoff": "2012-01-01",
-        "n_days": 1870,
-        "n_fires": 0,
-        "n_crash_days": 128,
-        "fire_pct": 0.0,
-        "tp": 0,
-        "fp": 0,
-        "fn": 128,
-        "tn": 1742,
-        "precision": NaN,
-        "recall": 0.0
+        "pipeline": {
+          "price_column": "nasdaq_close",
+          "fit_through": "2011-12-31",
+          "n_feature_dates": 14394,
+          "engine_errors": {},
+          "base_rate": 0.33849359928550166,
+          "weights": {
+            "anomaly": 0.18333333300646484,
+            "regime": 0.18333333300646484,
+            "analog": 0.45,
+            "causal": 0.18333333300646484
+          },
+          "skill": {
+            "anomaly": 0.0,
+            "regime": 0.0,
+            "analog": 0.019086430039719327,
+            "causal": 0.0
+          },
+          "gate": {
+            "source": "tuned on training window",
+            "layer1": 1.66318889107678,
+            "layer2": 0.7175734384831787,
+            "layer3": 2.0,
+            "posterior": 0.3769383312564936,
+            "confidence": 0.5,
+            "quantile": 0.75,
+            "train_fire_rate": 0.013545698124441799
+          }
+        }
       },
       {
+        "metrics": {
+          "n_days": 1728,
+          "n_scorable": 1665,
+          "n_fires": 61,
+          "n_crash_days": 656,
+          "base_rate": 0.393993993993994,
+          "fire_pct": 3.5300925925925926,
+          "tp": 61,
+          "fp": 0,
+          "fn": 595,
+          "tn": 1009,
+          "precision": 1.0,
+          "recall": 0.09298780487804878,
+          "f1": 0.1701534170153417,
+          "precision_lift": 2.538109756097561,
+          "x_pct": 10.0
+        },
+        "lead_times": {
+          "n_fires_with_event": 61,
+          "median_lead_td": 40.0,
+          "mean_lead_td": 33.83606557377049
+        },
+        "calibration_summary": {
+          "brier": 0.257642169552006,
+          "log_loss": 0.7163209880035248,
+          "reliability_slope": 0.0016835044813532881,
+          "reliability_intercept": 0.40491436606026193,
+          "base_rate": 0.393993993993994,
+          "brier_skill_score": -0.07907198549383287
+        },
+        "calibration_table": [
+          {
+            "posterior_mean": "(0.2, 0.3]",
+            "predicted_mean": "0.24982242017336967",
+            "empirical_rate": "0.4063777596075225",
+            "n": "1223"
+          },
+          {
+            "posterior_mean": "(0.3, 0.4]",
+            "predicted_mean": "0.31016254209980104",
+            "empirical_rate": "0.2457627118644068",
+            "n": "118"
+          },
+          {
+            "posterior_mean": "(0.4, 0.5]",
+            "predicted_mean": "0.45482572183567394",
+            "empirical_rate": "0.4126984126984127",
+            "n": "315"
+          },
+          {
+            "posterior_mean": "(0.5, 0.6]",
+            "predicted_mean": "0.5117579824450266",
+            "empirical_rate": "0.0",
+            "n": "9"
+          }
+        ],
+        "backtest": {
+          "strategy_cagr_pct": 19.160096746494638,
+          "strategy_vol_pct": 22.25994338168568,
+          "strategy_sharpe": 0.8993143559804483,
+          "strategy_sortino": 1.0671088921526897,
+          "strategy_maxdd_pct": -30.115674766073365,
+          "buyhold_cagr_pct": 16.99962029956399,
+          "buyhold_vol_pct": 24.35646809106429,
+          "buyhold_sharpe": 0.766784067945777,
+          "buyhold_sortino": 0.989320866468734,
+          "buyhold_maxdd_pct": -36.395278450363065,
+          "n_switches": 6,
+          "time_in_market_pct": 89.69907407407408,
+          "cagr_delta_pp": 2.160476446930648,
+          "maxdd_ratio": 0.8274610347368545
+        },
+        "kill_passes": false,
+        "kill_fails": [
+          "[1] reliability slope 0.002 outside [0.5, 1.5]"
+        ],
+        "kill_notes": [
+          "[2] CAGR +2.16pp vs B&H OK",
+          "[3] MaxDD ratio 0.827 OK",
+          "[4] max engine weight 0.427 OK",
+          "[5] gate fire rate 3.53% OK"
+        ],
         "fold": 4,
         "cutoff": "2020-01-01",
-        "n_days": 1489,
-        "n_fires": 8,
-        "n_crash_days": 158,
-        "fire_pct": 0.5372733378106112,
-        "tp": 0,
-        "fp": 8,
-        "fn": 158,
-        "tn": 1323,
-        "precision": 0.0,
-        "recall": 0.0
+        "pipeline": {
+          "price_column": "nasdaq_close",
+          "fit_through": "2019-12-31",
+          "n_feature_dates": 14394,
+          "engine_errors": {},
+          "base_rate": 0.3002839295854628,
+          "weights": {
+            "anomaly": 0.4269926388975053,
+            "regime": 0.1,
+            "analog": 0.373007361940167,
+            "causal": 0.1
+          },
+          "skill": {
+            "anomaly": 0.037242295541366155,
+            "regime": 0.0,
+            "analog": 0.0156253454197115,
+            "causal": 0.0
+          },
+          "gate": {
+            "source": "tuned on training window",
+            "layer1": 1.735084396452793,
+            "layer2": 0.7568228434722439,
+            "layer3": 2.0,
+            "posterior": 0.40372737378113116,
+            "confidence": 0.5,
+            "quantile": 0.8,
+            "train_fire_rate": 0.012606473594548553
+          }
+        }
       }
     ],
     "pooled": {
-      "n_days": 6452,
-      "n_fires": 8,
-      "n_crash_days": 320,
-      "fire_pct": 0.12399256044637322,
-      "tp": 0,
-      "fp": 8,
-      "fn": 320,
-      "tn": 6124,
-      "precision": 0.0,
-      "recall": 0.0
+      "metrics": {
+        "n_days": 7206,
+        "n_scorable": 7143,
+        "n_fires": 71,
+        "n_crash_days": 2563,
+        "base_rate": 0.35881282374352513,
+        "fire_pct": 0.9852900360810436,
+        "tp": 61,
+        "fp": 10,
+        "fn": 2502,
+        "tn": 4570,
+        "precision": 0.8591549295774648,
+        "recall": 0.023800234100663287,
+        "f1": 0.0463173880030372,
+        "precision_lift": 2.3944376363526456,
+        "x_pct": 10.0
+      },
+      "lead_times": {
+        "n_fires_with_event": 61,
+        "median_lead_td": 40.0,
+        "mean_lead_td": 33.83606557377049
+      },
+      "calibration_summary": {
+        "brier": 0.2458062849868742,
+        "log_loss": 0.6975191822847122,
+        "reliability_slope": -0.414781768664709,
+        "reliability_intercept": 0.4541153073134253,
+        "base_rate": 0.35881282374352513,
+        "brier_skill_score": -0.06841554738683442
+      },
+      "calibration_table": [
+        {
+          "posterior_mean": "(-0.001, 0.1]",
+          "predicted_mean": "0.08323638085102338",
+          "empirical_rate": "0.22435897435897437",
+          "n": "156"
+        },
+        {
+          "posterior_mean": "(0.1, 0.2]",
+          "predicted_mean": "0.16103890636513069",
+          "empirical_rate": "0.5698324022346368",
+          "n": "537"
+        },
+        {
+          "posterior_mean": "(0.2, 0.3]",
+          "predicted_mean": "0.25149235326515884",
+          "empirical_rate": "0.3496457041629761",
+          "n": "4516"
+        },
+        {
+          "posterior_mean": "(0.3, 0.4]",
+          "predicted_mean": "0.329472899435755",
+          "empirical_rate": "0.25612648221343876",
+          "n": "1265"
+        },
+        {
+          "posterior_mean": "(0.4, 0.5]",
+          "predicted_mean": "0.4589642064265571",
+          "empirical_rate": "0.4570815450643777",
+          "n": "466"
+        },
+        {
+          "posterior_mean": "(0.5, 0.6]",
+          "predicted_mean": "0.5052951113082412",
+          "empirical_rate": "0.5221674876847291",
+          "n": "203"
+        }
+      ],
+      "backtest": {
+        "strategy_cagr_pct": 8.821881867131953,
+        "strategy_vol_pct": 24.00316476152022,
+        "strategy_sharpe": 0.47225443397440403,
+        "strategy_sortino": 0.605041064371222,
+        "strategy_maxdd_pct": -77.93238548355788,
+        "buyhold_cagr_pct": 9.08141101652542,
+        "buyhold_vol_pct": 24.613193743237698,
+        "buyhold_sharpe": 0.4762456084063455,
+        "buyhold_sortino": 0.6262345874869657,
+        "buyhold_maxdd_pct": -77.93238548355788,
+        "n_switches": 12,
+        "time_in_market_pct": 96.28087704690536,
+        "cagr_delta_pp": -0.25952914939346705,
+        "maxdd_ratio": 1.0
+      },
+      "kill_passes": false,
+      "kill_fails": [
+        "[1] reliability slope -0.415 outside [0.5, 1.5]"
+      ],
+      "kill_notes": [
+        "[2] CAGR -0.26pp vs B&H OK",
+        "[3] MaxDD ratio 1.000 OK",
+        "[4] max engine weight 0.427 OK",
+        "[5] gate fire rate 0.99% OK"
+      ]
+    }
+  },
+  "blind": {
+    "metrics": {
+      "n_days": 1466,
+      "n_scorable": 1403,
+      "n_fires": 105,
+      "n_crash_days": 526,
+      "base_rate": 0.37491090520313614,
+      "fire_pct": 7.162346521145976,
+      "tp": 76,
+      "fp": 22,
+      "fn": 450,
+      "tn": 855,
+      "precision": 0.7755102040816326,
+      "recall": 0.1444866920152091,
+      "f1": 0.24358974358974358,
+      "precision_lift": 2.068518662217739,
+      "x_pct": 10.0
     },
-    "calibration": [
+    "lead_times": {
+      "n_fires_with_event": 76,
+      "median_lead_td": 38.5,
+      "mean_lead_td": 34.38157894736842
+    },
+    "calibration_summary": {
+      "brier": 0.2398326587734469,
+      "log_loss": 0.6762680457619825,
+      "reliability_slope": 0.6302188445839009,
+      "reliability_intercept": 0.1973915897876067,
+      "base_rate": 0.37491090520313614,
+      "brier_skill_score": -0.023383302096201097
+    },
+    "calibration_table": [
+      {
+        "posterior_mean": "(0.1, 0.2]",
+        "predicted_mean": "0.1886860590992532",
+        "empirical_rate": "0.2754491017964072",
+        "n": "167"
+      },
+      {
+        "posterior_mean": "(0.2, 0.3]",
+        "predicted_mean": "0.24138237421369954",
+        "empirical_rate": "0.35714285714285715",
+        "n": "686"
+      },
+      {
+        "posterior_mean": "(0.3, 0.4]",
+        "predicted_mean": "0.33029185197372074",
+        "empirical_rate": "0.3716012084592145",
+        "n": "331"
+      },
       {
         "posterior_mean": "(0.4, 0.5]",
-        "predicted_mean": "0.4662002828548312",
-        "empirical_rate": "0.12479338842975207",
-        "n": "2420"
+        "predicted_mean": "0.48828706617580786",
+        "empirical_rate": "0.5923566878980892",
+        "n": "157"
       },
       {
         "posterior_mean": "(0.5, 0.6]",
-        "predicted_mean": "0.5502367655260159",
-        "empirical_rate": "0.005772931366260423",
-        "n": "3118"
-      },
-      {
-        "posterior_mean": "(0.6, 0.7]",
-        "predicted_mean": "0.6111147878355527",
-        "empirical_rate": "0.0",
-        "n": "914"
+        "predicted_mean": "0.5367811173831583",
+        "empirical_rate": "0.3064516129032258",
+        "n": "62"
       }
-    ]
+    ],
+    "backtest": {
+      "strategy_cagr_pct": 11.156345352195762,
+      "strategy_vol_pct": 18.114834621963148,
+      "strategy_sharpe": 0.6743485115702197,
+      "strategy_sortino": 0.7923244064590069,
+      "strategy_maxdd_pct": -26.544574387594754,
+      "buyhold_cagr_pct": 13.066757093508041,
+      "buyhold_vol_pct": 21.957542825054254,
+      "buyhold_sharpe": 0.6689788255509368,
+      "buyhold_sortino": 0.9352103746262301,
+      "buyhold_maxdd_pct": -36.395278450363186,
+      "n_switches": 18,
+      "time_in_market_pct": 76.67121418826738,
+      "cagr_delta_pp": -1.910411741312279,
+      "maxdd_ratio": 0.7293411540674685
+    },
+    "kill_passes": true,
+    "kill_fails": [],
+    "kill_notes": [
+      "[1] reliability slope 0.630 OK",
+      "[2] CAGR -1.91pp vs B&H OK",
+      "[3] MaxDD ratio 0.729 OK",
+      "[4] max engine weight 0.400 OK",
+      "[5] gate fire rate 7.16% OK"
+    ],
+    "x_pct": 10.0,
+    "horizon_td": 63,
+    "fire_dates": [
+      "2021-05-13",
+      "2021-05-19",
+      "2021-05-20",
+      "2022-03-21",
+      "2022-03-22",
+      "2022-03-29",
+      "2022-05-09",
+      "2022-05-10",
+      "2022-05-11",
+      "2022-05-12",
+      "2022-05-13",
+      "2022-05-16",
+      "2022-05-17",
+      "2022-05-20",
+      "2022-05-23",
+      "2022-05-24",
+      "2022-05-25",
+      "2022-05-26",
+      "2022-05-27",
+      "2022-05-30",
+      "2022-05-31",
+      "2022-06-01",
+      "2022-06-02",
+      "2022-06-03",
+      "2022-06-06",
+      "2022-06-07",
+      "2022-06-08",
+      "2022-06-10",
+      "2022-06-15",
+      "2022-06-17",
+      "2022-06-21",
+      "2022-06-22",
+      "2022-06-23",
+      "2022-06-24",
+      "2022-06-27",
+      "2022-06-28",
+      "2022-06-29",
+      "2022-06-30",
+      "2022-07-01",
+      "2022-07-05",
+      "2022-07-06",
+      "2022-07-07",
+      "2022-07-08",
+      "2022-07-11",
+      "2022-07-12",
+      "2022-07-22",
+      "2022-07-26",
+      "2022-07-27",
+      "2022-07-28",
+      "2022-07-29",
+      "2022-08-08",
+      "2022-09-22",
+      "2022-09-23",
+      "2022-09-26",
+      "2022-09-27",
+      "2022-09-30",
+      "2022-10-06",
+      "2022-10-07",
+      "2022-10-10",
+      "2022-10-11",
+      "2022-10-12",
+      "2022-10-13",
+      "2022-10-14",
+      "2022-10-17",
+      "2022-10-18",
+      "2022-10-19",
+      "2022-10-20",
+      "2022-10-21",
+      "2022-10-24",
+      "2022-10-25",
+      "2022-10-26",
+      "2022-10-27",
+      "2022-10-28",
+      "2022-10-31",
+      "2022-11-01",
+      "2022-11-02",
+      "2022-11-03",
+      "2022-11-04",
+      "2022-11-07",
+      "2022-11-09",
+      "2022-11-15",
+      "2022-11-29",
+      "2022-11-30",
+      "2023-01-09",
+      "2023-01-12",
+      "2023-01-13",
+      "2023-01-16",
+      "2023-01-17",
+      "2023-01-19",
+      "2023-01-20",
+      "2024-08-19",
+      "2024-08-20",
+      "2024-08-21",
+      "2024-08-22",
+      "2024-08-28",
+      "2024-08-29",
+      "2024-10-08",
+      "2025-11-21",
+      "2026-06-05",
+      "2026-06-10",
+      "2026-06-16",
+      "2026-06-17",
+      "2026-06-18",
+      "2026-06-22",
+      "2026-06-23"
+    ],
+    "pipeline": {
+      "price_column": "nasdaq_close",
+      "fit_through": "2020-12-31",
+      "n_feature_dates": 14394,
+      "engine_errors": {},
+      "base_rate": 0.3064960847027683,
+      "weights": {
+        "anomaly": 0.4000000001820444,
+        "regime": 0.4000000001820444,
+        "analog": 0.1,
+        "causal": 0.1
+      },
+      "skill": {
+        "anomaly": 0.04248945250532654,
+        "regime": 0.030433736375396148,
+        "analog": 0.0,
+        "causal": 0.0
+      },
+      "gate": {
+        "source": "tuned on training window",
+        "layer1": 1.6708097794717258,
+        "layer2": 0.5963096928230237,
+        "layer3": 2.0,
+        "posterior": 0.35,
+        "confidence": 0.5,
+        "quantile": 0.75,
+        "train_fire_rate": 0.014668578361089667
+      }
+    }
   }
 }

@@ -54,13 +54,20 @@ from src.v6.config import CONFIG, CausalConfig
 # Cross-asset / risk universe for the factor model.
 # Use what we actually have in the DB (sp500, vix, yield_10y, oil_wti,
 # dollar_twi, baa_10y_spread, margin_debt) — node count 5-7.
-CAUSAL_ASSETS: Dict[str, str] = {
-    "equity": "sp500_close",     # use returns
-    "vol": "vix_close",          # use level changes
-    "rates": "yield_10y",        # use level changes
-    "credit": "baa_10y_spread",  # use level changes
-    "oil": "oil_wti",            # use returns
-    "dollar": "dollar_twi",      # use returns
+# Each node lists candidate columns in preference order; the first one with
+# enough history wins. `equity` prefers the Nasdaq Composite because
+# `sp500_close` is fed by FRED's SP500 series, which carries only a rolling
+# 10-year window — under the alpha's hard-coded choice the `.dropna()`
+# intersection below truncated this entire engine to 2016+, which is why it
+# emitted NaN across every pre-2016 walk-forward fold.
+CAUSAL_ASSETS: Dict[str, List[str]] = {
+    "equity": ["nasdaq_close", "sp500_close"],   # use returns
+    "vol": ["vix_close"],                        # use level changes
+    "rates": ["yield_10y"],                      # use level changes
+    "credit": ["baa_10y_spread", "aaa_10y_spread"],  # use level changes
+    "liquidity": ["nfci"],                       # use level changes
+    "oil": ["oil_wti"],                          # use returns
+    "dollar": ["dollar_twi"],                    # use returns
 }
 
 
@@ -94,7 +101,7 @@ class CausalEngine:
         s = s.astype(float)
         if name in {"equity", "oil", "dollar"}:
             return s.pct_change(fill_method=None)
-        # vol, rates, credit are levels -> first-difference (or change ratio)
+        # vol, rates, credit, liquidity are levels -> first-difference
         return s.diff()
 
     def _build_returns(self, raw: pd.DataFrame, lock_to_fit: bool = False) -> pd.DataFrame:
@@ -107,9 +114,10 @@ class CausalEngine:
         cols: Dict[str, pd.Series] = {}
         candidates = self.asset_cols_ if lock_to_fit and self.asset_cols_ else list(CAUSAL_ASSETS.keys())
         for asset_name in candidates:
-            col_name = CAUSAL_ASSETS[asset_name]
-            if col_name in raw.columns and raw[col_name].notna().sum() >= 252:
-                cols[asset_name] = self._series_to_change(asset_name, raw[col_name])
+            for col_name in CAUSAL_ASSETS[asset_name]:
+                if col_name in raw.columns and raw[col_name].notna().sum() >= 252:
+                    cols[asset_name] = self._series_to_change(asset_name, raw[col_name])
+                    break
         if len(cols) < 3:
             raise RuntimeError(
                 f"CausalEngine needs ≥3 causal assets with sufficient data; got {len(cols)}."

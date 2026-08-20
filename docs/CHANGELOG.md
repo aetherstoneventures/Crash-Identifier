@@ -2,6 +2,100 @@
 
 All notable changes to the Market Crash Predictor system.
 
+## [6.1.0] - 2026-08-20
+
+### v6 repaired — the alpha's failure was mechanical, not empirical
+
+v6.0.0-alpha reported 0% recall on BLIND and was shelved. A post-mortem
+([docs/V6_POSTMORTEM.md](V6_POSTMORTEM.md)) found nine defects — three in the
+data layer, four in the mathematics, two in evaluation — that made the result
+untestable rather than negative. **The aggregator could not have fired
+regardless of data quality: its posterior was mathematically confined to
+[0.333, 0.667] against a 0.60 gate threshold.**
+
+**Data layer**
+- `scripts/data/backfill_fred.py` — new. Repairs and refreshes 27 series from
+  FRED with explicit point-in-time rules (`close` / `lag` / `vintage`), bounded
+  staleness, and level-matched splices. Indicators table extended from 11 562
+  rows (1982+) to 14 394 (1971-02-05 → 2026-08-19).
+- **Price series fixed.** `sp500_close` is fed by FRED's `SP500`, licensed as a
+  rolling 10-year window, so it began in 2016 — truncating every price-derived
+  feature and the crash labels themselves. `resolve_price_column()` now selects
+  the longest quality-passing series (Nasdaq Composite, 1971+). Feature
+  coverage: 22.6% → 96-100%.
+- **Look-ahead removed from macro.** Monthly series were stamped on the
+  observation date (April-2020 unemployment sat on 2020-04-01; published
+  2020-05-08) and stored revised values. Now sourced from ALFRED vintages at
+  first-release dates.
+- `src/v6/features/quality.py` — new. Screens every column for constant fills,
+  degenerate variance and synthetic noise. Quarantines `put_call_ratio`
+  (fabricated), the `*_crash` label columns (leakage), and three constant-fill
+  columns. Real VIX (1986+) replaces a constant 17.24 pre-1990 fill.
+- `populate_crash_events.py` had the same hard-coded price column; crash
+  episodes went from 22 (2016+, duplicated) to 90 distinct episodes (1971+),
+  now including 1987, 2000-02 and 2008.
+
+**Mathematics**
+- `aggregator.py` rewritten: per-engine Beta-Binomial calibration plus
+  skill-weighted **log-odds pooling** anchored on the training base rate.
+  Posterior range 0.007-0.943 (was capped at 0.667). Weights are cross-fitted,
+  tempered, and bounded so no engine can dominate (kill criterion 4).
+- Confidence replaced. The old `1 - 2*sqrt(Var)` spanned [0.5000, 0.5286]
+  across all possible inputs, sitting on its own 0.50 threshold. Now the
+  geometric mean of inter-engine agreement, coverage, and analog support.
+- Layer composites are re-standardised, so a "1.5σ" threshold means 1.5σ
+  (previously 2.4σ and 3.1σ).
+- **Layer 1 decomposed into crash archetypes** (`credit_led`, `rate_led`,
+  `valuation_led`, `shock_led`). A single averaged macro composite blocked the
+  gate on every day of the 2022 bear market because credit and employment were
+  healthy — making the system structurally blind to non-credit crashes. Fires
+  now report which archetype triggered them. 100%-layer-agreement is unchanged.
+- Layers evaluated with per-layer persistence windows; layer and posterior
+  thresholds fitted on each fold's training window to a target fire rate.
+
+**Leakage fixes found during repair**
+- `regime.py`: `predict_proba` (forward-backward smoothing) replaced with an
+  explicit forward filter. The pipeline scored the full history in one call, so
+  every historical date was being told its own future.
+- `analog.py`: neighbours whose forward windows overlap the query's are now
+  embargoed. Train/OOS posterior maxima went from 0.943/0.742 to 0.555/0.526 —
+  **the measured results got worse, which is the point.**
+- `analog.py`: confidence was computed as `1 - d1/dk`, the inverse of the
+  documented measure; replaced with a reference-ranked cluster radius.
+  Distance computation vectorised via whitening (score time 120s+ → 4.6s).
+
+**Evaluation**
+- `src/v6/features/labels.py` — new. The forward-drawdown label has one
+  definition, used by training, calibration and scoring alike. Previously the
+  engines trained on forward maxDD while the harness scored crash-episode
+  onsets — different events.
+- `scripts/v6/validate.py`: all **five** kill criteria are now computed (the
+  alpha checked one). Adds a decision backtest with 5bps slippage, lead-time
+  analysis, Brier/log-loss/reliability slope, and valid-JSON artefacts.
+  **BLIND results are persisted** — the alpha wrote only a `walkforward` key.
+
+**Results** — see [V6_HONEST_SCORECARD.md](V6_HONEST_SCORECARD.md)
+- BLIND 2021-2026: 5/5 kill criteria PASS. Precision 0.776 (2.07x base rate),
+  38.5-day median lead, MaxDD -26.5% vs -36.4% B&H, Sharpe 0.67 vs 0.67,
+  CAGR 11.16% vs 13.07%.
+- Walk-forward: 3 of 4 folds still FAIL; pooled reliability slope is negative.
+- **Disclosed:** the 2021+ window was inspected during development and is no
+  longer a clean holdout.
+
+**Tests**
+- `tests/test_v6/` — new, 32 tests covering every defect above.
+- Repaired 13 pre-existing failures in `tests/test_data_collection/` (stale
+  session API and Yahoo-VIX expectations). Suite: **95 passed, 2 skipped**.
+
+**Housekeeping**
+- `run.sh` rewritten for the v6 pipeline; it previously invoked nine deleted
+  v5 scripts and failed at step 2.
+- `README.md` rewritten; it documented the v5 tree that commit `1e97ed3`
+  removed.
+- `docs/DATA_SOURCES.md` — new. Every column, source, and point-in-time rule.
+- Legacy v5 artefacts moved to `data/legacy_v5/` with a provenance README;
+  empty `scripts/utils/` and stray `.DS_Store` files removed.
+
 ## [3.1.0] - 2026-04-28
 
 ### Lean cleanup — v5 frozen as production

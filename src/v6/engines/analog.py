@@ -20,8 +20,10 @@ Method
           distance (using the LedoitWolf-shrunk covariance of training data)
        b. empirical conditional CDF:
               P̂(maxDD ≥ x_pct | x(t)) = (1/k) Σ_i 1[maxDD_i(h) ≥ x_pct]
-       c. confidence = ratio of distance-to-nearest neighbour over
-          distance-to-k-th, in [0, 1] (1 = tight cluster, 0 = far)
+       c. confidence = how tight the retrieved neighbourhood is,
+          measured as the k-th-neighbour radius ranked against the
+          radii seen in training (1 = dense familiar region,
+          0 = further from history than anything in-sample)
        d. return top-N nearest analog dates with their forward paths.
 
 CRITICAL: x_pct and h are inference-time parameters, NOT training-time.
@@ -44,6 +46,89 @@ from sklearn.covariance import LedoitWolf
 from sklearn.preprocessing import StandardScaler
 
 from src.v6.config import AnalogConfig, CONFIG, SUPPORTED_HORIZON_DAYS
+
+
+def _embargo_bounds(pool_dates: pd.DatetimeIndex, query_dates: pd.DatetimeIndex,
+                    embargo_td: int) -> Tuple[np.ndarray, np.ndarray]:
+    """Pool index range to suppress around each query date.
+
+    Returns (lo, hi) arrays such that pool positions in ``[lo_i, hi_i)`` are
+    within the embargo window of query date i and must not be retrieved.
+
+    WHY EMBARGO
+    -----------
+    Consecutive trading days are nearly identical in feature space, and
+    their forward-outcome windows overlap almost entirely: for h = 63, the
+    labels of day t and day t+1 share 62 of 63 days. Without an embargo the
+    nearest neighbours of an in-sample date are simply its own neighbouring
+    dates, which already know that date's outcome. The engine then looks
+    excellent in-sample and reverts to noise out-of-sample — precisely the
+    train/test gap measured in v6.1 development (posterior clearing 0.60 on
+    20% of training days but 1% of out-of-sample days).
+
+    Suppressing a window of +/- h trading days around the query removes the
+    overlapping-label neighbours, so in-sample scores mean the same thing as
+    out-of-sample ones. This is the purging-and-embargo discipline standard
+    in financial cross-validation (Lopez de Prado, *Advances in Financial
+    Machine Learning*, ch. 7).
+
+    The window is expressed in calendar days (trading days x 1.6, rounded
+    up) so it can be applied with a date search; erring long is safe.
+    """
+    if embargo_td <= 0:
+        empty = np.zeros(len(query_dates), dtype=int)
+        return empty, empty
+    span = pd.Timedelta(days=int(np.ceil(embargo_td * 1.6)))
+    lo = np.searchsorted(pool_dates.values, (query_dates - span).values, side="left")
+    hi = np.searchsorted(pool_dates.values, (query_dates + span).values, side="right")
+    return lo, hi
+
+
+# A query date that is also in the training pool matches itself at distance
+# ~0. Those self-matches would let a date "predict" its own realised outcome,
+# so distances below this are pushed out of contention before neighbours are
+# selected.
+_SELF_MATCH_EPS = 1e-8
+
+
+def _whitening_matrix(inv_cov: np.ndarray) -> np.ndarray:
+    """Matrix W with W W^T = inv_cov, for Mahalanobis-as-Euclidean.
+
+    Prefers a Cholesky factor; falls back to the symmetric eigendecomposition
+    when the shrunk inverse covariance is not numerically positive definite.
+    """
+    try:
+        return np.linalg.cholesky(inv_cov)
+    except np.linalg.LinAlgError:
+        vals, vecs = np.linalg.eigh(inv_cov)
+        return vecs @ np.diag(np.sqrt(np.clip(vals, 0.0, None)))
+
+
+def _cluster_support(d_k: np.ndarray, reference: Optional[np.ndarray]) -> np.ndarray:
+    """How well-supported the analog set is, in [0, 1].
+
+    `d_k` is the distance to the k-th nearest neighbour: the radius of the
+    ball holding the retrieved analogs. Support is one minus that radius's
+    percentile within the radii seen during training, so 1.0 means today's
+    neighbourhood is tighter than almost any training day (a dense, familiar
+    region of feature space) and 0.0 means we are further from history than
+    we ever were in-sample — the design's "no good analogs found" state.
+
+    Why not the design's literal d_1 / d_k
+    --------------------------------------
+    Both v6.0.0-alpha and the design document define analog confidence as a
+    ratio between the nearest and k-th neighbour distances. That statistic
+    collapses whenever any single neighbour is very close: when the pipeline
+    scores a date that is itself in the training pool, the date matches
+    itself at distance ~0, so d_1/d_k -> 0 and "confidence" reads zero on
+    half of all days for a reason that has nothing to do with analog
+    quality. Measuring the radius against its own training distribution is
+    robust to that and answers the same question.
+    """
+    if reference is None or len(reference) == 0:
+        return np.full(len(d_k), np.nan)
+    ranks = np.searchsorted(reference, d_k) / len(reference)
+    return np.clip(1.0 - ranks, 0.0, 1.0)
 
 
 @dataclass
@@ -74,6 +159,10 @@ class AnalogEngine:
         self.scaler_: Optional[StandardScaler] = None
         self.cov_: Optional[LedoitWolf] = None
         self.inv_cov_: Optional[np.ndarray] = None
+        self.whiten_: Optional[np.ndarray] = None
+        self.train_Xw_: Optional[np.ndarray] = None
+        self._train_sqnorm_: Optional[np.ndarray] = None
+        self.train_dk_: Optional[np.ndarray] = None
         self.feature_cols_: List[str] = []
         self._train_medians_: Optional[pd.Series] = None
         self.train_Xz_: Optional[np.ndarray] = None       # (T, d) standardised
@@ -117,6 +206,12 @@ class AnalogEngine:
         self.cov_ = LedoitWolf().fit(Xz)
         # Pre-invert for fast distance computation.
         self.inv_cov_ = np.linalg.pinv(self.cov_.covariance_)
+        # Whitening transform W with W W^T = Sigma^-1, so that
+        #     (a-b)^T Sigma^-1 (a-b) = || (a-b) W ||^2 .
+        # Mahalanobis distance then reduces to a plain Euclidean distance in
+        # whitened space, which BLAS computes for the whole matrix at once
+        # instead of one einsum per query date.
+        self.whiten_ = _whitening_matrix(self.inv_cov_)
 
         # 3. Compute forward maxDD for each horizon.
         px = prices.loc[features.index].astype(float).values
@@ -139,22 +234,65 @@ class AnalogEngine:
         longest_h = max(horizons)
         eligible = ~np.isnan(self.forward_maxdd_[longest_h])
         self.train_Xz_ = Xz[eligible]
+        self.train_Xw_ = self.train_Xz_ @ self.whiten_
+        # Cached ||row||^2 term of the expanded squared-distance identity.
+        self._train_sqnorm_ = np.einsum("ij,ij->i", self.train_Xw_, self.train_Xw_)
         self.train_dates_ = features.index[eligible]
         for h in horizons:
             self.forward_maxdd_[h] = self.forward_maxdd_[h][eligible]
 
+        # Reference distribution of the k-th-neighbour radius, measured on the
+        # training pool itself with self-matches excluded. `_cluster_support`
+        # ranks a query's radius against this, turning an unbounded distance
+        # into an interpretable [0, 1] support score.
+        self.train_dk_ = self._reference_radii()
+
         self.last_fit_date_ = features.index.max()
         return self
+
+    def _reference_radii(self) -> np.ndarray:
+        """Sorted k-th-neighbour distances across the training pool."""
+        pool_n = self.train_Xw_.shape[0]
+        if pool_n < 2:
+            return np.array([])
+        k = min(self.cfg.k_neighbors, pool_n - 1)
+        radii = np.empty(pool_n)
+        ref_lo, ref_hi = _embargo_bounds(
+            self.train_dates_, self.train_dates_,
+            max(SUPPORTED_HORIZON_DAYS) if self.cfg.embargo_horizons else 0,
+        )
+        batch = max(1, int(self.cfg.query_batch_size))
+        for lo in range(0, pool_n, batch):
+            hi = min(lo + batch, pool_n)
+            D = self._distance_matrix(self.train_Xz_[lo:hi])
+            # Same embargo as scoring, so the reference radii are drawn from
+            # the same retrieval regime the query path will face.
+            for r in range(hi - lo):
+                D[r, ref_lo[lo + r]:ref_hi[lo + r]] = np.inf
+            D[np.arange(hi - lo), np.arange(lo, hi)] = np.inf
+            part = np.partition(D, k - 1, axis=1)[:, :k]
+            radii[lo:hi] = part.max(axis=1)
+        return np.sort(radii)
 
     # ------------------------------------------------------------------
     # Score
     # ------------------------------------------------------------------
     def _distances(self, x: np.ndarray) -> np.ndarray:
         """Weighted-Mahalanobis distances to all training pool members."""
-        diff = self.train_Xz_ - x  # (T, d)
-        # quadratic form rowwise: d_i = sqrt(diff_i^T Σ⁻¹ diff_i)
-        d2 = np.einsum("ij,jk,ik->i", diff, self.inv_cov_, diff)
-        return np.sqrt(np.clip(d2, 0, None))
+        return self._distance_matrix(x.reshape(1, -1))[0]
+
+    def _distance_matrix(self, Xz: np.ndarray) -> np.ndarray:
+        """Mahalanobis distances from each row of `Xz` to the whole pool.
+
+        Uses the whitened-space identity ||a - b||^2 = ||a||^2 + ||b||^2 -
+        2 a.b, so the work is one matrix product per batch rather than a
+        quadratic form per query date.
+        """
+        Xw = Xz @ self.whiten_
+        q_sq = np.einsum("ij,ij->i", Xw, Xw)[:, None]
+        cross = Xw @ self.train_Xw_.T
+        d2 = q_sq + self._train_sqnorm_[None, :] - 2.0 * cross
+        return np.sqrt(np.clip(d2, 0.0, None))
 
     def query(self, feature_vec: pd.Series, x_pct: float, horizon_td: int,
               top_n_analogs: int = 10) -> AnalogResult:
@@ -188,9 +326,16 @@ class AnalogEngine:
         x = feature_vec[self.feature_cols_].fillna(self._train_medians_).values
         xz = self.scaler_.transform(x.reshape(1, -1))[0]
 
-        # Compute distances + nearest k.
+        # Compute distances + nearest k, ignoring self-matches and any pool
+        # date whose forward window overlaps this query's.
         d = self._distances(xz)
-        k = min(self.cfg.k_neighbors, len(d))
+        d = np.where(d <= _SELF_MATCH_EPS, np.inf, d)
+        if self.cfg.embargo_horizons and feature_vec.name is not None:
+            e_lo, e_hi = _embargo_bounds(
+                self.train_dates_, pd.DatetimeIndex([feature_vec.name]), horizon_td
+            )
+            d[e_lo[0]:e_hi[0]] = np.inf
+        k = min(self.cfg.k_neighbors, int(np.isfinite(d).sum()))
         nn_idx = np.argpartition(d, k - 1)[:k]
         nn_idx = nn_idx[np.argsort(d[nn_idx])]  # sort the k
 
@@ -198,11 +343,19 @@ class AnalogEngine:
         forward = self.forward_maxdd_[horizon_td][nn_idx]
         prob = float(np.mean(forward >= x_pct))
 
-        # Confidence: tight cluster -> 1; diffuse -> 0
-        eps = self.cfg.min_distance_eps
-        d_first = max(nn_d[0], eps)
-        d_last = max(nn_d[-1], eps)
-        confidence = float(np.clip(1.0 - d_first / d_last, 0.0, 1.0))
+        # Confidence: tight cluster -> 1; diffuse -> 0.
+        #
+        # This is d_1 / d_k, per design doc §5.3 ("ratio of distance-to-1st-NN
+        # over distance-to-50th-NN (tight cluster = high)"). When all k
+        # neighbours sit at a similar distance the ratio approaches 1 and the
+        # analog set is a coherent cluster; when the nearest neighbour is far
+        # closer than the k-th, the ratio collapses toward 0 and we are
+        # extrapolating from one lucky match.
+        #
+        # v6.0.0-alpha computed 1 - d_1/d_k, which is this measure inverted:
+        # it reported LOW confidence exactly when the analog cluster was
+        # tightest.
+        confidence = float(_cluster_support(nn_d[-1:], self.train_dk_)[0])
 
         n_top = min(top_n_analogs, k)
         analog_dates = [self.train_dates_[i] for i in nn_idx[:n_top]]
@@ -234,14 +387,28 @@ class AnalogEngine:
         if self.train_Xz_.shape[0] == 0:
             return pd.DataFrame({"prob": probs, "confidence": confs}, index=features.index)
         fwd = self.forward_maxdd_[horizon_td]
-        for i in range(T):
-            diff = self.train_Xz_ - Xz[i]
-            d2 = np.einsum("ij,jk,ik->i", diff, self.inv_cov_, diff)
-            d = np.sqrt(np.clip(d2, 0, None))
-            kk = min(k, len(d))
-            nn_idx = np.argpartition(d, kk - 1)[:kk]
-            nn_d = np.sort(d[nn_idx])
-            probs[i] = float(np.mean(fwd[nn_idx] >= x_pct))
-            eps = self.cfg.min_distance_eps
-            confs[i] = float(np.clip(1.0 - max(nn_d[0], eps) / max(nn_d[-1], eps), 0.0, 1.0))
+        kk = min(k, self.train_Xw_.shape[0])
+        hit = (fwd >= x_pct)
+        # Batch the query dates: one (batch x pool) distance matrix at a time
+        # keeps peak memory bounded while still doing the heavy lifting in
+        # BLAS rather than in Python.
+        batch = max(1, int(self.cfg.query_batch_size))
+        # Suppress pool dates whose forward windows overlap the query's.
+        embargo_td = horizon_td if self.cfg.embargo_horizons else 0
+        emb_lo, emb_hi = _embargo_bounds(
+            self.train_dates_, pd.DatetimeIndex(features.index), embargo_td
+        )
+        for lo in range(0, T, batch):
+            hi = min(lo + batch, T)
+            D = self._distance_matrix(Xz[lo:hi])
+            # A scored date that also sits in the training pool would
+            # otherwise retrieve itself and read off its own future.
+            D[D <= _SELF_MATCH_EPS] = np.inf
+            for r in range(hi - lo):
+                D[r, emb_lo[lo + r]:emb_hi[lo + r]] = np.inf
+            nn_idx = np.argpartition(D, kk - 1, axis=1)[:, :kk]
+            rows = np.arange(hi - lo)[:, None]
+            nn_d = np.sort(D[rows, nn_idx], axis=1)
+            probs[lo:hi] = hit[nn_idx].mean(axis=1)
+            confs[lo:hi] = _cluster_support(nn_d[:, -1], self.train_dk_)
         return pd.DataFrame({"prob": probs, "confidence": confs}, index=features.index)

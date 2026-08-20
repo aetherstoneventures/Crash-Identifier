@@ -5,14 +5,17 @@
 # Behaviour:
 #   • If a venv already exists, asks whether to do a FRESH install or REUSE it.
 #   • If no venv exists, always does a FRESH install.
-#   • Then runs: data collection → crash events → training → predictions →
-#     evaluation → Streamlit dashboard (v5 Production tab).
+#   • Then runs the v6 Crash KPI Engine pipeline:
+#       FRED backfill → crash events → walk-forward + BLIND validation
+#       → Streamlit dashboard (v6 Crash KPI Engine tab).
 #
 # Usage:
-#   ./run.sh           # interactive prompt
-#   ./run.sh --fresh   # force fresh install (non-interactive)
-#   ./run.sh --reuse   # force reuse existing venv (non-interactive)
+#   ./run.sh                    # interactive prompt
+#   ./run.sh --fresh            # force fresh install (non-interactive)
+#   ./run.sh --reuse            # force reuse existing venv (non-interactive)
 #   ./run.sh --dashboard-only   # skip pipeline, just launch dashboard
+#   ./run.sh --skip-backfill    # skip the FRED refresh (offline / rate-limited)
+#   ./run.sh --x 10 --h 63      # crash threshold % and horizon in trading days
 # ----------------------------------------------------------------------------
 set -euo pipefail
 
@@ -27,22 +30,29 @@ R='\033[0;31m'; G='\033[0;32m'; Y='\033[1;33m'; B='\033[0;34m'; C='\033[0;36m'; 
 
 banner() {
     echo -e "${B}================================================================================${N}"
-    echo -e "${B}  Crash-Identifier · Pipeline Launcher${N}"
+    echo -e "${B}  Crash-Identifier · v6 Crash KPI Engine${N}"
     echo -e "${B}================================================================================${N}"
 }
 
 # ---- parse args -----------------------------------------------------------
 MODE=""
 DASHBOARD_ONLY=0
-for arg in "$@"; do
-    case "$arg" in
+SKIP_BACKFILL=0
+X_PCT=10
+HORIZON=63
+while [ $# -gt 0 ]; do
+    case "$1" in
         --fresh)          MODE="fresh" ;;
         --reuse)          MODE="reuse" ;;
         --dashboard-only) DASHBOARD_ONLY=1 ;;
+        --skip-backfill)  SKIP_BACKFILL=1 ;;
+        --x)              X_PCT="${2:?--x needs a value}"; shift ;;
+        --h)              HORIZON="${2:?--h needs a value}"; shift ;;
         -h|--help)
-            sed -n '2,18p' "$0"; exit 0 ;;
-        *) echo -e "${R}Unknown arg: $arg${N}"; exit 2 ;;
+            sed -n '2,22p' "$0"; exit 0 ;;
+        *) echo -e "${R}Unknown arg: $1${N}"; exit 2 ;;
     esac
+    shift
 done
 
 banner
@@ -120,7 +130,7 @@ STREAMLIT="$VENV/bin/streamlit"
 if [ "$DASHBOARD_ONLY" -eq 1 ]; then
     echo -e "${B}--- Dashboard-only mode ---${N}"
     echo -e "${G}→ http://localhost:8501${N}\n"
-    exec "$STREAMLIT" run "$ROOT/src/dashboard/app.py"
+    exec "$STREAMLIT" run "$ROOT/src/dashboard/pages/v6_kpi_engine.py"
 fi
 
 # ---- pipeline -------------------------------------------------------------
@@ -132,20 +142,34 @@ run_step() {
     echo
 }
 
-run_step "1. Collecting market & economic data"      "$ROOT/scripts/data/collect_data.py"
-run_step "2. Fetching v5 daily features (FRED)"      "$ROOT/scripts/data/fetch_v5_features.py"
-run_step "3. Populating historical crash events"     "$ROOT/scripts/data/populate_crash_events.py"
-run_step "4a. Training StatV3 (statistical model)"   "$ROOT/scripts/training/train_statistical_model_v3.py"
-run_step "4b. Generating StatV3 predictions"         "$ROOT/scripts/utils/generate_predictions_v5.py"
-run_step "4c. Training v5 walk-forward (canonical)"  "$ROOT/scripts/training/train_v5_walkforward.py"
-run_step "4d. Training bottom-predictor"             "$ROOT/scripts/training/train_bottom_predictor.py"
-run_step "5. Generating bottom predictions"          "$ROOT/scripts/utils/generate_bottom_predictions.py"
-run_step "6. Evaluating crash detection"             "$ROOT/scripts/evaluation/evaluate_crash_detection.py"
+# 1. Repair/refresh the data layer from FRED. This is the step that keeps
+#    the price series full-history and macro series stamped on their real
+#    release dates; see docs/V6_POSTMORTEM.md for why it exists.
+if [ "$SKIP_BACKFILL" -eq 1 ]; then
+    echo -e "${Y}--- 1. FRED backfill SKIPPED (--skip-backfill) ---${N}\n"
+else
+    if [ -f "$ROOT/.env" ] && grep -q '^FRED_API_KEY=.\+' "$ROOT/.env"; then
+        run_step "1. Repairing + refreshing indicators from FRED" \
+            "$ROOT/scripts/data/backfill_fred.py"
+    else
+        echo -e "${Y}--- 1. FRED backfill skipped: no FRED_API_KEY in .env ---${N}"
+        echo -e "    Add one (free: https://fred.stlouisfed.org/docs/api/api_key.html)"
+        echo -e "    or pass --skip-backfill to silence this.\n"
+    fi
+fi
 
-echo -e "${G}✓ Pipeline complete${N}\n"
+run_step "2. Labelling historical crash episodes" \
+    "$ROOT/scripts/data/populate_crash_events.py"
+
+run_step "3. Walk-forward + BLIND validation (x=${X_PCT}%, h=${HORIZON}d)" \
+    "$ROOT/scripts/v6/validate.py" both --x "$X_PCT" --h "$HORIZON"
+
+echo -e "${G}✓ Pipeline complete${N}"
+echo -e "${C}  Scorecard artefact: data/v6_artifacts/v6_validation_x${X_PCT}_h${HORIZON}.json${N}"
+echo -e "${C}  Honest verdict:     docs/V6_HONEST_SCORECARD.md${N}\n"
 
 # ---- dashboard ------------------------------------------------------------
 echo -e "${Y}[3/3] Launching dashboard...${N}"
 echo -e "${G}→ http://localhost:8501${N}"
 echo -e "${C}(Ctrl+C to stop)${N}\n"
-exec "$STREAMLIT" run "$ROOT/src/dashboard/app.py"
+exec "$STREAMLIT" run "$ROOT/src/dashboard/pages/v6_kpi_engine.py"

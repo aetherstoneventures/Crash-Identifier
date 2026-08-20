@@ -1,24 +1,29 @@
-# Crash-Identifier — v5 Production
+# Crash-Identifier — v6 Crash KPI Engine
 
-A walk-forward-validated crash detector for the US equity market (Nasdaq Composite).
-The production model **v5** combines an XGBoost classifier with the StatV3
-multi-factor risk score (50/50 blend), gated by alarm hysteresis and a
-disciplined re-entry rule.
+A crash detector for the US equity market (Nasdaq Composite, 1971–present).
+
+Five engines score every trading day, a calibrated Bayesian aggregator pools
+them into `P(maxDD ≥ x% within h trading days)`, and a simultaneous-agreement
+gate turns that into an action signal — with the **crash threshold x% and the
+horizon h chosen at query time**, not baked into training.
 
 ```
-BLIND (out-of-sample, 2021-now, frozen config)
-─────────────────────────────────────────────────
-  Event detection ......... 100%   (2 / 2 crashes caught)
-  Day-precision ............ 95.8%
-  CAGR ..................... 23.0%   vs B&H ~15%
-  Sharpe ................... 1.45    MaxDD -13.2%
-  Median lead from peak .... -9d     (near-coincident, by design)
+BLIND (2021-01-01 → 2026-08-19, x = 10%, h = 63d)
+──────────────────────────────────────────────────
+  Gate precision .......... 0.776    (2.07× base rate)
+  Median lead ............. 38.5 trading days
+  MaxDD ................... -26.5%   vs -36.4% buy & hold
+  CAGR .................... 11.16%   vs 13.07% buy & hold
+  Sharpe .................. 0.67     vs 0.67
+  Kill criteria ........... 5 / 5 PASS
 ```
 
-> v5 has been frozen at git tag [`v5-BENCHMARK`](https://github.com/aetherstoneventures/Crash-Identifier)
-> and mirrored at branch `v5-benchmark-protected`. Three independent
-> attempts to improve on it (v5.1 / v6 / v5_multi) failed kill criteria —
-> see [docs/FUTURE_WORK_RESULTS.md](docs/FUTURE_WORK_RESULTS.md).
+> **Read [`docs/V6_HONEST_SCORECARD.md`](docs/V6_HONEST_SCORECARD.md) before
+> using any of this.** Three of four walk-forward folds still fail their kill
+> criteria, the probabilities are not yet well calibrated, and the 2021+
+> window is **no longer a clean holdout** — it was inspected during
+> development. The honest case for this system is drawdown reduction at
+> comparable return, not excess return.
 
 ---
 
@@ -28,23 +33,90 @@ BLIND (out-of-sample, 2021-now, frozen config)
 ./run.sh
 ```
 
-The launcher:
-- Detects whether `venv/` already exists and asks **FRESH** (recreate +
-  reinstall requirements) or **REUSE** (skip pip install).
-- Runs the lean pipeline (collect → train StatV3 → train v5 walk-forward →
-  bottom predictor → evaluate).
-- Launches the Streamlit dashboard at <http://localhost:8501> with the
-  **🛡️ v5 Production** tab as the landing page.
+The launcher creates or reuses `venv/`, repairs and refreshes the data from
+FRED, relabels crash episodes, runs walk-forward + BLIND validation, and opens
+the dashboard at <http://localhost:8501>.
 
-Non-interactive flags:
+| flag | effect |
+|---|---|
+| `./run.sh --fresh` | recreate venv, reinstall requirements |
+| `./run.sh --reuse` | reuse existing venv, skip pip install |
+| `./run.sh --dashboard-only` | skip the pipeline, just open the dashboard |
+| `./run.sh --skip-backfill` | skip the FRED refresh (offline) |
+| `./run.sh --x 20 --h 126` | different crash threshold / horizon |
 
-| flag                   | effect                                |
-|------------------------|---------------------------------------|
-| `./run.sh --fresh`     | force fresh venv + reinstall          |
-| `./run.sh --reuse`     | force reuse existing venv             |
-| `./run.sh --dashboard-only` | skip the pipeline, open the dashboard |
+Requires Python 3.9–3.12 and a free [FRED API
+key](https://fred.stlouisfed.org/docs/api/api_key.html) in `.env` as
+`FRED_API_KEY` (see `.env.example`).
 
-Requires Python 3.9–3.12 (`brew install python@3.11` on macOS).
+Ask the engine a question directly:
+
+```python
+from src.v6.pipeline import CrashKPIPipeline
+
+pipe = CrashKPIPipeline().fit_until("2020-12-31")
+
+# One fit answers any (x, h). Nothing is retrained between these calls.
+mild  = pipe.score(start="2021-01-01", x_pct=5.0,  horizon_td=21)
+severe = pipe.score(start="2021-01-01", x_pct=20.0, horizon_td=252)
+
+print(severe[["posterior_mean", "confidence", "archetype", "gate_fires"]].tail())
+```
+
+---
+
+## How it works
+
+```
+                    FEATURE VECTOR x(t) — 40 features, point-in-time
+        math/stats │ macro │ options-implied │ breadth │ geopolitical
+                                    │
+      ┌───────────┬────────────┬────┴───────┬────────────┐
+      ▼           ▼            ▼            ▼            │
+  ┌────────┐ ┌────────┐  ┌──────────┐ ┌──────────┐       │
+  │ENGINE 1│ │ENGINE 2│  │ ENGINE 3 │ │ ENGINE 4 │       │ features also
+  │Density │ │ Regime │  │  Analog  │ │  Causal  │       │ feed the gate
+  │anomaly │ │  HMM   │  │  k-NN    │ │ network  │       │
+  │        │ │        │  │(tunable  │ │          │       │
+  │"wrong?"│ │"regime?"│  │  x, h)  │ │  "why?"  │       │
+  └───┬────┘ └───┬────┘  └────┬─────┘ └────┬─────┘       │
+      └──────────┴────────────┴────────────┘             │
+                             ▼                           │
+              ┌──────────────────────────────┐           │
+              │ ENGINE 5 — AGGREGATOR        │           │
+              │ per-engine calibration       │           │
+              │ skill-weighted log-odds pool │           │
+              │ P(maxDD ≥ x% in [t, t+h])    │           │
+              └──────────────┬───────────────┘           │
+                             ▼                           ▼
+              ┌──────────────────────────────────────────────┐
+              │ LAYER 1/2/3 GATE — all must hold at once     │
+              │  L1 macro archetype active (credit / rate /  │
+              │     valuation / shock)  ← reports which      │
+              │  L2 tactical stress elevated                 │
+              │  L3 price confirms                           │
+              │  posterior ≥ τ  AND  confidence ≥ κ          │
+              └──────────────────────────────────────────────┘
+```
+
+**The tunable threshold.** Engine 3 stores realised forward drawdowns for
+every supported horizon and thresholds them at query time; the aggregator
+calibrates against the training-window realisation of whichever `(x, h)` you
+ask for. One fit serves `x ∈ {2, 5, 10, 15, 20, 30}%` and
+`h ∈ {21, 63, 126, 252}` trading days.
+
+**Crash archetypes.** A single averaged macro layer only recognises
+credit-led crashes, and vetoed everything else — it blocked the gate on every
+day of the 2022 bear market because credit and employment were healthy. Layer 1
+is therefore scored per archetype (`credit_led`, `rate_led`, `valuation_led`,
+`shock_led`) and reports which one fired. Full reasoning:
+[`docs/V6_POSTMORTEM.md`](docs/V6_POSTMORTEM.md) §11.
+
+**Leakage discipline.** Macro series are stamped on their real publication
+dates via ALFRED vintages; the HMM uses forward filtering, never
+forward-backward smoothing; the analog engine embargoes neighbours whose
+forward windows overlap the query's. Each is enforced by a test in
+`tests/test_v6/test_causality.py`.
 
 ---
 
@@ -55,78 +127,84 @@ Requires Python 3.9–3.12 (`brew install python@3.11` on macOS).
 ├── run.sh                          # single-command launcher
 ├── requirements.txt
 ├── data/
-│   ├── alarm_config_v5.json        # frozen v5 hysteresis config
-│   ├── experiment_*.json           # research scorecards (A/C/D)
-│   ├── v6_kill_verdict.json        # documented v6 negative result
-│   └── market_crash.db             # SQLite — populated by the pipeline
-├── models/
-│   ├── statistical_v3/             # StatV3 saved model
-│   └── v5/v5_final.pkl             # production XGBoost classifier
+│   ├── market_crash.db             # SQLite — 14 394 rows, 1971-02-05 → 2026-08-19
+│   ├── v6_artifacts/               # validation scorecards (JSON)
+│   └── backups/                    # pre-repair DB snapshots
 ├── scripts/
-│   ├── data/                       # collect_data, populate_crash_events,
-│   │                               # fetch_v5_features, purge_bad_rows
-│   ├── training/                   # train_statistical_model_v3,
-│   │                               # train_v5_walkforward (canonical),
-│   │                               # train_bottom_predictor
-│   ├── utils/                      # generate_predictions_v5,
-│   │                               # generate_bottom_predictions,
-│   │                               # v5_backtest
-│   ├── evaluation/                 # evaluate_crash_detection,
-│   │                               # evaluate_bottom_predictions
-│   ├── research/                   # experiments A / C / D / D-round2
+│   ├── data/
+│   │   ├── backfill_fred.py        # point-in-time FRED repair + refresh
+│   │   ├── collect_data.py         # legacy collector
+│   │   └── populate_crash_events.py# crash episode labelling
+│   ├── v6/validate.py              # walk-forward + BLIND + kill criteria
 │   └── database/migrate_to_postgresql.py
-├── src/
-│   ├── dashboard/                  # Streamlit app + v5_production page
-│   ├── models/                     # crash_prediction, bottom_prediction
-│   ├── data_collection/, feature_engineering/, alerts/, …
-│   └── utils/
+├── src/v6/
+│   ├── config.py                   # every hyperparameter and boundary
+│   ├── pipeline.py                 # fit_until() / score() — the entry point
+│   ├── features/
+│   │   ├── builder.py              # 40-feature point-in-time vector
+│   │   ├── quality.py              # fabricated-data screen
+│   │   ├── labels.py               # the forward-drawdown label (one definition)
+│   │   └── crash_extractor.py      # tunable x% episode segmentation
+│   └── engines/
+│       ├── anomaly.py              # E1 Mahalanobis + IsolationForest
+│       ├── regime.py               # E2 Gaussian HMM (forward-filtered)
+│       ├── analog.py               # E3 k-NN analog matcher (embargoed)
+│       ├── causal.py               # E4 PCA + Diebold-Yilmaz connectedness
+│       └── aggregator.py           # E5 calibrated log-odds pool + gate
+├── src/dashboard/pages/v6_kpi_engine.py
 ├── docs/
-│   ├── ARCHITECTURE.md
-│   ├── METHODOLOGY.md
-│   ├── V5_HONEST_SCORECARD.md      # canonical v5 metrics
-│   ├── FUTURE_WORK_RESULTS.md      # v5.1 / v6 / v5_multi kill log
-│   ├── V6_NEGATIVE_RESULT.md       # documented v6 shelving
+│   ├── V6_HONEST_SCORECARD.md      # results, failures, and caveats
+│   ├── V6_POSTMORTEM.md            # why the alpha failed; is the idea possible?
+│   ├── CRASH_KPI_ENGINE_DESIGN.md  # the approved design
+│   ├── DATA_SOURCES.md             # every column, source, and PIT rule
 │   ├── HISTORICAL_CRASHES_REFERENCE.md
 │   ├── INVESTOR_LAWS.md
-│   ├── REPRODUCIBILITY_GUIDE.md
-│   ├── CHANGELOG.md
-│   └── README.md
-└── tests/                          # pytest suite
+│   └── CHANGELOG.md
+└── tests/
+    ├── test_v6/                    # 32 regression + causality tests
+    └── test_data_collection/
 ```
 
 ---
 
-## The v5 pipeline (what `run.sh` runs)
+## Data
 
-1. **`scripts/data/collect_data.py`** — pulls Nasdaq, S&P 500, VIX, FRED
-   macro indicators and stores them in `data/market_crash.db`.
-2. **`scripts/data/populate_crash_events.py`** — labels historical crash
-   episodes (peak-back-walked 15% drawdowns ≥ 30 trading days).
-3. **`scripts/training/train_statistical_model_v3.py`** — trains StatV3
-   risk-factor model and saves to `models/statistical_v3/`.
-4. **`scripts/utils/generate_predictions_v5.py`** — runs StatV3 on the full
-   indicator history and writes per-day probabilities to `predictions`.
-5. **`scripts/training/train_v5_walkforward.py`** — *canonical v5 trainer.*
-   4-fold nested walk-forward XGBoost training; tunes alarm hysteresis on
-   TUNE folds only, evaluates on held-out TEST folds, then writes the
-   blended v5 probability series to the DB and freezes
-   `data/alarm_config_v5.json`.
-6. **`scripts/training/train_bottom_predictor.py`** — re-entry timing model.
-7. **`scripts/utils/generate_bottom_predictions.py`** — writes bottom
-   predictions to the DB.
-8. **`scripts/evaluation/evaluate_crash_detection.py`** — computes the
-   honest BLIND scorecard.
-9. **Streamlit dashboard** launches with the **🛡️ v5 Production** tab.
+All market and macro data comes from **FRED**. `scripts/data/backfill_fred.py`
+is idempotent and prints a before/after coverage report.
+
+Three point-in-time rules are applied, one per series type:
+
+| Rule | Applies to | Behaviour |
+|---|---|---|
+| `close` | daily market data | known at that day's close |
+| `lag` | weekly releases (NFCI, jobless claims) | shifted by the publication lag |
+| `vintage` | monthly macro (UNRATE, CPI, M2, INDPRO) | stamped on the **first release date** from ALFRED |
+
+Values go stale after a bounded window rather than being forward-filled
+forever, so a discontinued series becomes absent instead of a long constant.
+See [`docs/DATA_SOURCES.md`](docs/DATA_SOURCES.md).
 
 ---
 
 ## Tests
 
 ```bash
-venv/bin/pytest -W ignore
+venv/bin/pytest -q          # 95 passed, 2 skipped
 ```
 
+`tests/test_v6/` locks down every defect found in the post-mortem: the
+posterior range, the confidence measure, composite standardisation, archetype
+reachability, label definitions, the quality screen, weight bounds, HMM
+prefix-stability, and the analog embargo.
+
 ---
+
+## Previous versions
+
+v5 (XGBoost + StatV3 blend) is frozen at tag `v5-BENCHMARK` and branch
+`v5-benchmark-protected`. The pre-v6 tree is at tag `pre-v6-archive`. The
+v6.0.0-alpha state, whose failure prompted the current work, is at tag
+`v6.0.0-alpha`.
 
 ## License
 

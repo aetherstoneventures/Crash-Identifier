@@ -9,8 +9,8 @@ v6 feature vector. We keep the feature set small (vol, drawdown, credit
 spread, yield curve, NFCI/EPU) because HMMs become unstable with too
 many emission dimensions and limited training data.
 
-Outputs per date:
-    - posterior P(state = k) for each state k
+Outputs per date (all strictly causal — filtered, never smoothed):
+    - posterior P(state = k | observations up to t) for each state k
     - hard-assigned state (argmax of posterior)
     - h-step transition probability to the "crisis" state (highest-vol)
     - regime-stress score in [0, 1] = P(state ∈ {stress, crisis})
@@ -123,6 +123,56 @@ class RegimeEngine:
         Xz = self.scaler_.transform(X.values)
         return Xz
 
+    def _filtered_posterior(self, Xz: np.ndarray) -> np.ndarray:
+        """Forward-only (filtered) state probabilities P(state_t | x_1..x_t).
+
+        Implements the HMM forward recursion in log space:
+
+            log a_1(k) = log pi_k + log b_k(x_1)
+            log a_t(k) = logsumexp_j [log a_{t-1}(j) + log A_jk] + log b_k(x_t)
+
+        and normalises each row to a distribution. Unlike
+        `hmmlearn.predict_proba` (forward-backward smoothing), this
+        conditions only on observations up to and including t, which is the
+        only causally admissible quantity for a forecasting model.
+
+        Implemented directly from the fitted parameters rather than through
+        hmmlearn internals so it does not depend on private APIs.
+        """
+        from scipy.special import logsumexp
+        from scipy.stats import multivariate_normal
+
+        model = self.model_
+        n_states = model.n_components
+        T = Xz.shape[0]
+
+        # Emission log-densities: (T, K)
+        log_b = np.empty((T, n_states))
+        covars = model.covars_
+        for k in range(n_states):
+            cov = covars[k]
+            if cov.ndim == 1:          # 'diag' covariance
+                cov = np.diag(cov)
+            log_b[:, k] = multivariate_normal.logpdf(
+                Xz, mean=model.means_[k], cov=cov, allow_singular=True
+            )
+
+        with np.errstate(divide="ignore"):
+            log_pi = np.log(model.startprob_)
+            log_A = np.log(model.transmat_)
+
+        log_alpha = np.empty((T, n_states))
+        log_alpha[0] = log_pi + log_b[0]
+        for t in range(1, T):
+            # (K_prev, K_next) broadcast, then reduce over previous state.
+            log_alpha[t] = logsumexp(
+                log_alpha[t - 1][:, None] + log_A, axis=0
+            ) + log_b[t]
+
+        # Normalise each row into a probability distribution.
+        log_norm = logsumexp(log_alpha, axis=1, keepdims=True)
+        return np.exp(log_alpha - log_norm)
+
     def score(self, features: pd.DataFrame, h_steps: int = 21) -> pd.DataFrame:
         """Score all dates in `features`.
 
@@ -140,25 +190,34 @@ class RegimeEngine:
             h_step_crisis_prob, crisis_state, calm_state.
         """
         Xz = self._score_matrix(features)
-        # Posterior at each date given full sequence (use predict_proba which
-        # uses the forward-backward algorithm — note: this DOES use future
-        # observations within the supplied window. For strict walk-forward we
-        # rely on the caller to pass only-already-observed `features`.)
-        posterior = self.model_.predict_proba(Xz)
+
+        # FILTERED (forward-only) posterior — see `_filtered_posterior`.
+        # v6.0.0-alpha called `predict_proba`, which runs forward-BACKWARD
+        # smoothing: the state probability at date t was conditioned on
+        # observations AFTER t. Since the pipeline scores the full history in
+        # one call, every historical date was being told the future. This is
+        # the strict-causality fix.
+        posterior = self._filtered_posterior(Xz)
         hard_state = np.argmax(posterior, axis=1)
         stress_score = posterior[:, self.stress_states_].sum(axis=1)
 
-        # h-step transition: posterior @ trans_mat^h
+        # h-step transition: filtered posterior @ trans_mat^h
         trans = self.model_.transmat_
         trans_h = np.linalg.matrix_power(trans, h_steps)
         h_step_dist = posterior @ trans_h  # shape (T, K)
         h_step_crisis = h_step_dist[:, self.crisis_state_]
+        # Probability of being in ANY stress state h steps ahead. This is the
+        # horizon-aware quantity the aggregator consumes: it answers "where is
+        # this regime heading over the query horizon", not merely "where is it
+        # now".
+        h_step_stress = h_step_dist[:, self.stress_states_].sum(axis=1)
 
         cols = {f"posterior_state_{k}": posterior[:, k] for k in range(self.cfg.n_states)}
         cols.update({
             "hard_state": hard_state,
             "stress_score": stress_score,
             "h_step_crisis_prob": h_step_crisis,
+            "h_step_stress_prob": h_step_stress,
             "crisis_state": self.crisis_state_,
             "calm_state": self.calm_state_,
         })

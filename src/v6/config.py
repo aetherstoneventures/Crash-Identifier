@@ -79,6 +79,13 @@ class AnalogConfig:
     refit_every_days: int = 252
     use_lmnn: bool = False   # If True and metric-learn installed, use LMNN
     min_distance_eps: float = 1e-6
+    # Query dates per distance-matrix batch. Trades peak memory against the
+    # number of BLAS calls; 512 x ~14k pool is ~55 MB per batch.
+    query_batch_size: int = 512
+    # Suppress pool dates within +/- horizon of the query, whose forward
+    # windows overlap the query's and would leak its outcome. See
+    # analog._embargo_bounds. Disable only to reproduce the alpha's numbers.
+    embargo_horizons: bool = True
 
 
 # ---------------------------------------------------------------------------
@@ -98,10 +105,21 @@ class CausalConfig:
 # ---------------------------------------------------------------------------
 @dataclass(frozen=True)
 class AggregatorConfig:
-    """Bayesian model averaging with per-engine Beta-Binomial calibration."""
+    """Calibrated log-odds pooling with per-engine Beta-Binomial calibration."""
     beta_prior_alpha: float = 1.0
     beta_prior_beta: float = 1.0
-    min_weight: float = 0.05
+    # Weight bounds. The cap enforces kill criterion 4 ("one engine carries
+    # all weight") structurally; it must be >= 1/n_engines to be satisfiable.
+    min_weight: float = 0.10
+    max_weight: float = 0.45
+    # Exponent applied to measured skill before normalising into weights.
+    # Below 1.0 this compresses skill differences, so the one engine whose
+    # output is natively on-target cannot swamp the pool. See
+    # CrashKPIAggregator._weights_from_skill.
+    skill_temper: float = 0.5
+    # Log-odds units of inter-engine dispersion that halve the agreement
+    # component of confidence.
+    agreement_scale: float = 1.5
 
 
 # ---------------------------------------------------------------------------
@@ -109,12 +127,48 @@ class AggregatorConfig:
 # ---------------------------------------------------------------------------
 @dataclass(frozen=True)
 class GateConfig:
-    """Simultaneous-agreement gate ('100% agreement' constraint)."""
+    """Simultaneous-agreement gate ('100% agreement' constraint).
+
+    Every condition must hold on the same day — that requirement is the
+    point of the gate and is not relaxed. What changed after the alpha is
+    how each layer is *measured*.
+
+    **Persistence.** Macro regime stress and tactical stress move on
+    different clocks: credit and labour conditions deteriorate over months,
+    volatility and dispersion spike over days. Comparing both to a threshold
+    on the identical trading day asks two different processes to peak in the
+    same tick. Each layer is therefore evaluated as a rolling maximum over
+    its own natural window — "is this layer currently active", not "did this
+    layer print its high today". Measured lag-correlations back this up:
+    L1 leads L2 (corr 0.53 at 0 lag, 0.41 at -63d).
+
+    **Calibrated thresholds.** Layer thresholds are fitted on the TRAINING
+    window as quantiles of each layer's own distribution, chosen so the
+    joint fire rate lands inside the kill-criteria band. A hard-coded 1.5σ
+    is arbitrary once composites are correlated; a target fire rate is the
+    quantity that is actually pre-declarable. The z-thresholds below remain
+    the fallback when auto-tuning is disabled or has too little data.
+    """
     posterior_threshold: float = 0.60
     confidence_threshold: float = 0.50
     layer1_z_threshold: float = 1.5
     layer2_z_threshold: float = 1.5
     layer3_dd_threshold: float = 2.0  # percent, current drawdown trigger
+
+    # Rolling windows over which a layer counts as "currently active".
+    layer1_persistence_td: int = 63   # macro regime: slow-moving state
+    layer2_persistence_td: int = 10   # tactical stress: fast spikes
+
+    # Threshold auto-tuning on the training window.
+    auto_tune: bool = True
+    # A tuned posterior threshold is never allowed below this, nor below the
+    # training base rate: acting on a probability lower than the
+    # unconditional event rate is not a warning.
+    min_posterior_threshold: float = 0.35
+    target_fire_rate: float = 0.010          # 1% of training days
+    tune_quantile_grid: Tuple[float, ...] = (
+        0.50, 0.55, 0.60, 0.65, 0.70, 0.75, 0.80, 0.85, 0.90, 0.95
+    )
 
 
 # ---------------------------------------------------------------------------

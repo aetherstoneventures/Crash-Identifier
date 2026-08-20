@@ -1,6 +1,13 @@
 # Crash KPI Engine — v6 Design Document
 
-> **Status:** APPROVED design, implementation in progress on branch `v6-kpi-engine`.
+> **Status:** IMPLEMENTED as of v6.1 (2026-08-20). Results and remaining
+> failures: [V6_HONEST_SCORECARD.md](V6_HONEST_SCORECARD.md). The v6.0.0-alpha
+> build of this design failed for mechanical reasons documented in
+> [V6_POSTMORTEM.md](V6_POSTMORTEM.md), which also records the two places
+> where the implementation deliberately departs from this document:
+> Layer 1 is decomposed into crash archetypes (§11 of the post-mortem), and
+> gate thresholds are fitted to a target fire rate on each training window
+> rather than fixed at 1.5σ / τ=0.60.
 > **Supersedes:** v5 production model, statistical_v3, forward_risk (all archived at tag `pre-v6-archive` and on branch `v5-benchmark-protected`).
 > **Author:** Designed jointly with the project owner, May 2026.
 
