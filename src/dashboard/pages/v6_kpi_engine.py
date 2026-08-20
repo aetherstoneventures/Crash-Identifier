@@ -45,10 +45,12 @@ from src.v6.engines.aggregator import ENGINE_NAMES
 st.set_page_config(page_title="v6 Crash KPI Engine", layout="wide")
 st.title("v6 Crash KPI Engine — Tunable Crash Detector")
 
-st.info(
-    "**v6.1.** BLIND (2021-2026) passes all five kill criteria, but several "
-    "walk-forward folds do not, and the 2021+ window was inspected during "
-    "development so it is no longer a clean holdout. Read "
+st.warning(
+    "**v6.1 — fails its own kill criteria on every window.** The gate ranks "
+    "days usefully (pooled precision 0.859 at 2.39x the base rate, ~40-day "
+    "median lead) but the posterior is not a trustworthy probability, the two "
+    "earliest folds never fire, and the 2021+ window was inspected during "
+    "development so it is not a clean holdout. Read "
     "`docs/V6_HONEST_SCORECARD.md` before acting on anything here."
 )
 

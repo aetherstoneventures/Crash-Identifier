@@ -75,17 +75,45 @@ regardless of data quality: its posterior was mathematically confined to
   **BLIND results are persisted** — the alpha wrote only a `walkforward` key.
 
 **Results** — see [V6_HONEST_SCORECARD.md](V6_HONEST_SCORECARD.md)
-- BLIND 2021-2026: 5/5 kill criteria PASS. Precision 0.776 (2.07x base rate),
-  38.5-day median lead, MaxDD -26.5% vs -36.4% B&H, Sharpe 0.67 vs 0.67,
-  CAGR 11.16% vs 13.07%.
-- Walk-forward: 3 of 4 folds still FAIL; pooled reliability slope is negative.
+- **Every window FAILS its kill criteria.** The gate ranks days well (pooled
+  precision 0.859 at 2.39x base rate, ~40-day median lead) but the posterior
+  is not a trustworthy probability anywhere.
+- BLIND 2021-2026: FAILS criterion 1 (reliability slope 0.330). Precision
+  0.750, MaxDD -25.7% vs -36.4% B&H, Sharpe 0.71 vs 0.67, CAGR 11.50% vs
+  13.07%.
+- Folds 1-2 never fire; fold 3 costs 2.68pp of CAGR; fold 4 has precision
+  1.000 with a reliability slope of -0.071.
+- **Root cause of the calibration failure:** the base rate of the target event
+  varies 3.4x across folds (0.176-0.603), so training-fitted priors and
+  calibration maps are wrong when prevalence shifts. Three calibration methods
+  were compared; none fixed it.
 - **Disclosed:** the 2021+ window was inspected during development and is no
   longer a clean holdout.
 
+**Freezing (new)**
+- `src/v6/freeze.py` + `scripts/v6/holdout_eval.py`: every decision-affecting
+  setting is hashed, and the holdout evaluator refuses to run on config drift
+  or on a window that is not strictly after the freeze's lock date. The
+  "no retuning" rule is now checkable instead of promised.
+- Frozen `data/v6_artifacts/frozen_config_v6.1.0.json`, lock date 2026-08-19.
+
+**Posterior recalibration (new)**
+- Cross-fitted Platt scaling on the pooled posterior, chosen on walk-forward
+  evidence over isotonic and no-calibration. Monotone, so gate precision is
+  unchanged (0.859). Selectable via `AggregatorConfig.posterior_calibration`.
+- Note: adding it moved BLIND from passing to failing criterion 1. Reverting
+  would restore the pass, but choosing on the holdout is precisely the error
+  documented above, so the walk-forward-selected rule was kept.
+
+**Per-archetype reporting (new)**
+- Validation now breaks precision and lead time out by crash archetype.
+  Surfaced that `credit_led` has **never** fired and that ~90% of fires are
+  `shock_led` — i.e. this is a shock detector, not a general crash detector.
+
 **Tests**
-- `tests/test_v6/` — new, 32 tests covering every defect above.
+- `tests/test_v6/` — new, 46 tests covering every defect above.
 - Repaired 13 pre-existing failures in `tests/test_data_collection/` (stale
-  session API and Yahoo-VIX expectations). Suite: **95 passed, 2 skipped**.
+  session API and Yahoo-VIX expectations). Suite: **109 passed, 2 skipped**.
 
 **Housekeeping**
 - `run.sh` rewritten for the v6 pipeline; it previously invoked nine deleted

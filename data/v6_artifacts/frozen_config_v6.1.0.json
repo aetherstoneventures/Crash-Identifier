@@ -1,0 +1,99 @@
+{
+  "version": "6.1.0",
+  "lock_date": "2026-08-19",
+  "config_hash": "9745c43c2b0d33b7f908188694f8f9937df613249c049725b9e7ea2e72d2faa0",
+  "note": "Configuration as validated in docs/V6_HONEST_SCORECARD.md. KNOWN CONTAMINATION: the 2021-2026 window was inspected during v6.1 development (the Layer 1 archetype split was designed after looking at 2022 gate diagnostics), so it is NOT a clean holdout. A genuine out-of-sample verdict requires data after the lock date.",
+  "config": {
+    "walk_forward_folds": [
+      "1999-01-01",
+      "2005-01-01",
+      "2012-01-01",
+      "2020-01-01"
+    ],
+    "blind_start": "2021-01-01",
+    "default_x_pct": 10.0,
+    "default_horizon_td": 63,
+    "supported_x_pct": [
+      2.0,
+      5.0,
+      10.0,
+      15.0,
+      20.0,
+      30.0
+    ],
+    "supported_horizon_td": [
+      21,
+      63,
+      126,
+      252
+    ],
+    "anomaly": {
+      "iso_n_estimators": 200,
+      "iso_contamination": 0.05,
+      "refit_every_days": 252,
+      "normal_buffer_td": 20,
+      "normal_buffer_x_pct": 10.0,
+      "alert_threshold": 0.99
+    },
+    "regime": {
+      "n_states": 4,
+      "refit_every_days": 63,
+      "em_iterations": 100,
+      "random_state": 42
+    },
+    "analog": {
+      "k_neighbors": 50,
+      "refit_every_days": 252,
+      "use_lmnn": false,
+      "min_distance_eps": 1e-06,
+      "query_batch_size": 512,
+      "embargo_horizons": true
+    },
+    "causal": {
+      "n_factors": 5,
+      "granger_lag": 5,
+      "rolling_window_td": 252,
+      "refit_every_days": 63
+    },
+    "aggregator": {
+      "beta_prior_alpha": 1.0,
+      "beta_prior_beta": 1.0,
+      "min_weight": 0.1,
+      "max_weight": 0.45,
+      "skill_temper": 0.5,
+      "agreement_scale": 1.5,
+      "posterior_calibration": "platt"
+    },
+    "gate": {
+      "posterior_threshold": 0.6,
+      "confidence_threshold": 0.5,
+      "layer1_z_threshold": 1.5,
+      "layer2_z_threshold": 1.5,
+      "layer3_dd_threshold": 2.0,
+      "layer1_persistence_td": 63,
+      "layer2_persistence_td": 10,
+      "auto_tune": true,
+      "min_posterior_threshold": 0.35,
+      "target_fire_rate": 0.01,
+      "tune_quantile_grid": [
+        0.5,
+        0.55,
+        0.6,
+        0.65,
+        0.7,
+        0.75,
+        0.8,
+        0.85,
+        0.9,
+        0.95
+      ]
+    },
+    "kill": {
+      "max_calibration_error_pp": 10.0,
+      "min_cagr_delta_vs_bh_pp": -2.0,
+      "max_maxdd_ratio_vs_bh": 1.1,
+      "max_gate_fire_pct": 10.0,
+      "min_gate_fire_pct": 0.1
+    }
+  }
+}

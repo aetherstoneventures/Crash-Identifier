@@ -2,12 +2,21 @@
 
 > **Question asked:** is the Crash KPI Engine, as designed, actually possible?
 >
-> **Answer:** yes, and the alpha never tested it. The engine returned 0% recall
-> not because index crashes are unforecastable, but because of nine mechanical
-> defects — three in the data layer, four in the mathematics, two in the
-> evaluation. Each is verified numerically below. After repair the same
-> architecture produces a working detector, with real and clearly-stated
-> limits.
+> **Answer:** the architecture is sound and the alpha never tested it. The 0%
+> recall came from nine mechanical defects — three in the data layer, four in
+> the mathematics, two in the evaluation — each verified numerically below.
+> Chief among them: the aggregator's posterior was mathematically confined to
+> [0.333, 0.667] against a 0.60 gate threshold, so it could not have fired on
+> any dataset.
+>
+> After repair the system detects: pooled gate precision **0.859** at 2.39×
+> the base rate with a ~40-day median lead, and drawdown cut from −36.4% to
+> −25.7% on 2021–2026. But it **still fails its own kill criteria on every
+> window**, because its probabilities are not trustworthy in absolute terms.
+> That failure has an identified cause — the base rate of the target event
+> varies 3.4× across decades — which is a property of the forecasting problem,
+> not another bug. See [§12](#12-so-is-the-idea-possible) and
+> [V6_HONEST_SCORECARD.md](V6_HONEST_SCORECARD.md).
 
 The alpha's own scorecard diagnosed "missing FRED series" and "data
 starvation". That was directionally right about the data and wrong about the
@@ -378,11 +387,12 @@ comparable at all:
 
 ## 12. So: is the idea possible?
 
-**Yes, with honest limits.** After repair, on the 2021–2026 window the engine
-passes all five pre-declared kill criteria: precision 0.776 at 2.07× the base
-rate, a 38.5-trading-day median lead, and maximum drawdown cut from −36.4% to
-−26.5% at equal Sharpe. Full numbers, including the walk-forward folds that
-still fail, are in [V6_HONEST_SCORECARD.md](V6_HONEST_SCORECARD.md).
+**Yes as an architecture, not yet as a product.** After repair the system
+produces genuinely informative signals — pooled gate precision 0.859 at 2.39×
+the base rate with a ~40-day median lead, and drawdown cut from −36.4% to
+−25.7% on 2021–2026 — but **it does not currently pass its own kill criteria
+on any window.** The binding failure is calibration, not detection. Full
+numbers in [V6_HONEST_SCORECARD.md](V6_HONEST_SCORECARD.md).
 
 What the exercise establishes:
 
@@ -396,6 +406,16 @@ What the exercise establishes:
    posterior tops out near 0.55 against a ~0.30 base rate. That is real lift
    and it is not clairvoyance. Any version of this system claiming sharp
    0.9-probability crash calls is leaking.
+5. **Ranking transfers across regimes; absolute probability does not.** The
+   base rate of the target event varies 3.4× across folds (0.176 to 0.603), so
+   a prior and a calibration map fitted on training data are simply wrong when
+   the scoring window's prevalence differs. Three calibration approaches were
+   compared and none fixed it. This is the main open problem, and it is a
+   property of the forecasting target rather than a bug.
+6. **It is a shock detector, not a general crash detector.** 90% of pooled
+   fires are `shock_led`; the `credit_led` archetype has never fired in any
+   window. Decomposing Layer 1 was what made this measurable — a blended
+   composite would have reported one average and hidden it.
 4. **"100% agreement" must be type-aware.** Universal agreement across all
    macro indicators is not a strictness dial, it is a filter that admits one
    crash archetype. Requiring unanimity *within* a recognised archetype

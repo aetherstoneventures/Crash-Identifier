@@ -355,6 +355,102 @@ class EngineCalibrator:
         return out
 
 
+@dataclass
+class PosteriorCalibrator:
+    """Final recalibration of the pooled posterior against outcomes.
+
+    WHY A SECOND CALIBRATION STAGE
+    ------------------------------
+    Each engine is already calibrated individually, but **pooling does not
+    preserve calibration**. A weighted log-odds pool of four individually
+    well-calibrated experts is generally over- or under-confident, because
+    the experts are correlated: they partly observe the same market state, so
+    summing their evidence double-counts it. v6.1's first validation showed
+    exactly that signature — the posterior *ranked* days well (pooled gate
+    precision 0.859 at 2.39x lift) while its *probabilities* failed kill
+    criterion 1, with reliability slopes of 0.002 and -0.415.
+
+    Ranking and calibration are separate properties, and only the second one
+    was broken. This stage fixes the second without disturbing the first:
+    isotonic regression is monotone, so it cannot reorder days.
+
+    FITTING DISCIPLINE
+    ------------------
+    Isotonic regression is flexible enough to memorise its training set, and
+    a calibration map fitted on the same rows it is scored against would look
+    perfect and transfer badly. The map is therefore **cross-fitted**: the
+    training window is cut into contiguous blocks, each block's map is fitted
+    on the other blocks, and the final stored map is refitted on everything.
+    Blocks are contiguous rather than random because neighbouring days share
+    overlapping outcome windows; random folds would leak across the split.
+    """
+    method: str = "platt"      # 'platt' | 'isotonic' | 'none'
+    n_blocks: int = 4
+    min_samples: int = 200
+    model_: object = None
+    fitted_: bool = False
+    train_slope_: float = float("nan")
+
+    def _new_model(self):
+        if self.method == "isotonic":
+            from sklearn.isotonic import IsotonicRegression
+            return IsotonicRegression(y_min=0.0, y_max=1.0, out_of_bounds="clip")
+        from sklearn.linear_model import LogisticRegression
+        return LogisticRegression(C=1.0, solver="lbfgs")
+
+    def _fit_model(self, model, p: np.ndarray, yy: np.ndarray):
+        if self.method == "isotonic":
+            model.fit(p, yy)
+        else:
+            # Platt scaling: a 2-parameter logistic on the log-odds of the
+            # pooled posterior.
+            model.fit(_logit(p).reshape(-1, 1), yy)
+        return model
+
+    def _predict(self, model, p: np.ndarray) -> np.ndarray:
+        if self.method == "isotonic":
+            return model.predict(p)
+        return model.predict_proba(_logit(p).reshape(-1, 1))[:, 1]
+
+    def fit(self, posterior: np.ndarray, y: np.ndarray) -> "PosteriorCalibrator":
+        if self.method == "none":
+            self.fitted_ = False
+            return self
+
+        mask = np.isfinite(posterior) & np.isfinite(y)
+        p, yy = posterior[mask], y[mask]
+        if len(p) < self.min_samples or len(np.unique(yy)) < 2:
+            self.fitted_ = False
+            return self
+
+        # Cross-fitted estimate of what this map will do out-of-sample.
+        # Recorded for auditing; the stored map is the full-data refit.
+        oof = np.full(len(p), np.nan)
+        edges = np.linspace(0, len(p), self.n_blocks + 1).astype(int)
+        for b in range(self.n_blocks):
+            lo, hi = edges[b], edges[b + 1]
+            train_idx = np.r_[np.arange(0, lo), np.arange(hi, len(p))]
+            if len(train_idx) < self.min_samples or len(np.unique(yy[train_idx])) < 2:
+                continue
+            fold = self._fit_model(self._new_model(), p[train_idx], yy[train_idx])
+            oof[lo:hi] = self._predict(fold, p[lo:hi])
+        ok = np.isfinite(oof)
+        if ok.sum() > 10 and np.std(oof[ok]) > 0:
+            self.train_slope_ = float(np.polyfit(oof[ok], yy[ok], 1)[0])
+
+        self.model_ = self._fit_model(self._new_model(), p, yy)
+        self.fitted_ = True
+        return self
+
+    def transform(self, posterior: np.ndarray) -> np.ndarray:
+        if not self.fitted_ or self.model_ is None:
+            return posterior
+        out = np.full(len(posterior), np.nan)
+        finite = np.isfinite(posterior)
+        out[finite] = self._predict(self.model_, posterior[finite])
+        return out
+
+
 # ---------------------------------------------------------------------------
 # Aggregator + Gate
 # ---------------------------------------------------------------------------
@@ -388,6 +484,7 @@ class CrashKPIAggregator:
     # Layer thresholds fitted on the training window; None -> use GateConfig.
     gate_thresholds_: Optional[Dict[str, float]] = None
     gate_tuning_: Dict[str, float] = field(default_factory=dict)
+    posterior_calibrator_: Optional[PosteriorCalibrator] = None
 
     # ---------- Per-engine pressure mappings ----------
     @staticmethod
@@ -499,6 +596,26 @@ class CrashKPIAggregator:
 
         self.weights = self._weights_from_skill(self.skill_)
         self.fitted_ = True
+
+        # Recalibrate the pooled posterior against training outcomes. This
+        # runs with the calibrator cleared so `aggregate` returns the raw
+        # pool, then the fitted map applies to every later call — including
+        # the gate tuning below, which must see final probabilities.
+        self.posterior_calibrator_ = None
+        if features is not None:
+            train_features = features.loc[features.index <= idx.max()]
+            try:
+                raw_scored = self.aggregate(engine_outputs, train_features)
+                common = raw_scored.index.intersection(y.index)
+                if len(common) >= 200:
+                    self.posterior_calibrator_ = PosteriorCalibrator(
+                        method=self.aggregator_cfg.posterior_calibration
+                    ).fit(
+                        raw_scored.loc[common, "posterior_mean"].values,
+                        y.loc[common].values,
+                    )
+            except RuntimeError:
+                self.posterior_calibrator_ = None
 
         if features is not None and self.gate_cfg.auto_tune:
             self._tune_gate(engine_outputs, features.loc[features.index <= idx.max()])
@@ -678,7 +795,14 @@ class CrashKPIAggregator:
         norm_w = eff_w.div(w_sum.where(w_sum > 0), axis=0)
         total_evidence = (evidence.where(present, 0.0) * norm_w).sum(axis=1)
         post_logit = prior_logit + total_evidence.where(w_sum > 0)
-        post_mean = pd.Series(_expit(post_logit.values), index=idx).where(w_sum > 0)
+        post_raw = pd.Series(_expit(post_logit.values), index=idx).where(w_sum > 0)
+        # Final recalibration (monotone, so the ranking of days is unchanged).
+        if self.posterior_calibrator_ is not None and self.posterior_calibrator_.fitted_:
+            post_mean = pd.Series(
+                self.posterior_calibrator_.transform(post_raw.values), index=idx
+            )
+        else:
+            post_mean = post_raw
 
         # 3. Confidence — the GEOMETRIC MEAN of three components, each in
         #    [0, 1]. A geometric mean keeps the "one bad component drags the
@@ -744,6 +868,7 @@ class CrashKPIAggregator:
         out = pd.DataFrame({
             "posterior_mean": post_mean,
             "posterior_logit": post_logit,
+            "posterior_uncalibrated": post_raw,
             "confidence": confidence,
             "conf_agreement": agreement,
             "conf_coverage": coverage,
@@ -787,5 +912,8 @@ class CrashKPIAggregator:
                 **self.gate_tuning_,
             }
         return {"source": "tuned on training window", **self.gate_thresholds_,
+                "posterior_calibrated": bool(
+                    self.posterior_calibrator_ and self.posterior_calibrator_.fitted_
+                ),
                 "confidence": self.gate_cfg.confidence_threshold,
                 **self.gate_tuning_}

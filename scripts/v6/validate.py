@@ -149,6 +149,48 @@ def _lead_times(scores: pd.DataFrame, prices: pd.Series, x_pct: float,
     }
 
 
+def _by_archetype(scores: pd.DataFrame, prices: pd.Series, x_pct: float,
+                  horizon_td: int) -> pd.DataFrame:
+    """Precision and lead time broken out by crash archetype.
+
+    The whole point of decomposing Layer 1 was to distinguish crash types
+    rather than average them away. A single headline precision hides the
+    case that matters most in practice: a detector that is strong on
+    credit-led drawdowns and useless on shock-led ones should say so plainly
+    instead of reporting one blended number.
+    """
+    if "archetype" not in scores.columns:
+        return pd.DataFrame()
+    idx = scores.index.intersection(prices.index)
+    labels = crash_label(prices, x_pct, horizon_td).reindex(idx)
+    fires = scores["gate_fires"].reindex(idx).fillna(False).astype(bool)
+    tags = scores["archetype"].reindex(idx)
+
+    rows = []
+    for tag in sorted(t for t in tags.dropna().unique()):
+        sel = fires & (tags == tag)
+        n = int(sel.sum())
+        if n == 0:
+            rows.append({"archetype": tag, "fires": 0, "precision": float("nan"),
+                         "median_lead_td": float("nan"), "base_rate": float("nan")})
+            continue
+        y = labels[sel]
+        scorable = y.notna()
+        sub = scores.loc[sel.index[sel]]
+        leads = _lead_times(
+            scores.assign(gate_fires=sel), prices, x_pct, horizon_td
+        )
+        rows.append({
+            "archetype": tag,
+            "fires": n,
+            "precision": float(y[scorable].mean()) if scorable.any() else float("nan"),
+            "median_lead_td": leads["median_lead_td"],
+            "base_rate": float(labels[tags == tag].dropna().mean())
+            if (tags == tag).any() else float("nan"),
+        })
+    return pd.DataFrame(rows)
+
+
 # ---------------------------------------------------------------------------
 # Calibration
 # ---------------------------------------------------------------------------
@@ -357,6 +399,7 @@ def _evaluate(scores: pd.DataFrame, prices: pd.Series, x_pct: float,
     metrics = _confusion(scores, prices, x_pct, horizon_td)
     metrics["x_pct"] = x_pct
     leads = _lead_times(scores, prices, x_pct, horizon_td)
+    archetypes = _by_archetype(scores, prices, x_pct, horizon_td)
     calib_tbl, calib = _calibration(scores, prices, x_pct, horizon_td)
     backtest = _backtest(scores, prices)
     passes, fails, notes = _kill_check(metrics, calib, backtest, weights)
@@ -367,9 +410,13 @@ def _evaluate(scores: pd.DataFrame, prices: pd.Series, x_pct: float,
             print(f"    FAIL {f}")
         for n in notes:
             print(f"    ok   {n}")
+    if title and len(archetypes) and archetypes["fires"].sum() > 0:
+        print("  By archetype:")
+        print(archetypes.round(3).to_string(index=False).replace("\n", "\n    "))
     return {
         "metrics": metrics,
         "lead_times": leads,
+        "by_archetype": archetypes.to_dict(orient="records") if len(archetypes) else [],
         "calibration_summary": calib,
         "calibration_table": calib_tbl.reset_index().astype(str).to_dict(orient="records"),
         "backtest": backtest,

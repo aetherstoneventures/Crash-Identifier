@@ -12,14 +12,21 @@ Start here, in this order.
 | [INVESTOR_LAWS.md](INVESTOR_LAWS.md) | Background research notes on crash dynamics. |
 | [CHANGELOG.md](CHANGELOG.md) | Version history. |
 
+Freezing and holdout machinery lives in `src/v6/freeze.py` and
+`scripts/v6/holdout_eval.py` — see the scorecard's *"The BLIND set is not
+blind"* section for why it exists.
+
 ## The short version
 
 The v6 engine estimates `P(maxDD ≥ x% within h trading days)` for any `x` and
-`h` you ask for, from a single fit. On the 2021–2026 window it passes all five
-pre-declared kill criteria — precision 0.776 at 2.07× the base rate, a
-38.5-day median lead, drawdown cut from −36.4% to −26.5% at equal Sharpe.
+`h` you ask for, from a single fit. Its gate *ranks* days usefully — pooled
+precision 0.859 at 2.39× the base rate with a ~40-day median lead, and
+drawdown cut from −36.4% to −25.7% on 2021–2026.
 
-It does **not** beat buy-and-hold on return, its probabilities are not yet
-well calibrated, three of four walk-forward folds still fail, and the BLIND
-window was inspected during development. The scorecard says all of this in
-more detail; read it before quoting any number above.
+It **fails its own kill criteria on every window**. The probabilities are not
+trustworthy in absolute terms (the base rate of the target event varies 3.4×
+across decades), the two earliest folds never fire, the `credit_led` archetype
+has never fired at all, it does not beat buy-and-hold on return, and the
+2021+ window was inspected during development so it is not a clean holdout.
+
+Read the scorecard before quoting any number above.

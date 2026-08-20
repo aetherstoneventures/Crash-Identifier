@@ -120,6 +120,11 @@ class AggregatorConfig:
     # Log-odds units of inter-engine dispersion that halve the agreement
     # component of confidence.
     agreement_scale: float = 1.5
+    # Final recalibration of the pooled posterior against training outcomes:
+    # 'platt' (2-parameter logistic), 'isotonic' (free monotone), or 'none'.
+    # See CrashKPIAggregator / PosteriorCalibrator for the measured
+    # comparison behind this default.
+    posterior_calibration: str = "platt"
 
 
 # ---------------------------------------------------------------------------

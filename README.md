@@ -8,22 +8,29 @@ gate turns that into an action signal — with the **crash threshold x% and the
 horizon h chosen at query time**, not baked into training.
 
 ```
-BLIND (2021-01-01 → 2026-08-19, x = 10%, h = 63d)
+POOLED WALK-FORWARD (1999-2026, x = 10%, h = 63d)
 ──────────────────────────────────────────────────
-  Gate precision .......... 0.776    (2.07× base rate)
-  Median lead ............. 38.5 trading days
-  MaxDD ................... -26.5%   vs -36.4% buy & hold
-  CAGR .................... 11.16%   vs 13.07% buy & hold
-  Sharpe .................. 0.67     vs 0.67
-  Kill criteria ........... 5 / 5 PASS
+  Gate precision .......... 0.859    (2.39× base rate)
+  Median lead ............. 40 trading days
+  Reliability slope ....... 0.419    ← FAILS kill criterion 1
+  CAGR .................... 8.82%    vs 9.08% buy & hold
+
+BLIND (2021-01-01 → 2026-08-19)
+  Gate precision .......... 0.750    (2.00× base rate)
+  MaxDD ................... -25.7%   vs -36.4% buy & hold
+  Sharpe .................. 0.71     vs 0.67
+  Kill criteria ........... FAILS (reliability slope 0.330)
 ```
 
-> **Read [`docs/V6_HONEST_SCORECARD.md`](docs/V6_HONEST_SCORECARD.md) before
-> using any of this.** Three of four walk-forward folds still fail their kill
-> criteria, the probabilities are not yet well calibrated, and the 2021+
-> window is **no longer a clean holdout** — it was inspected during
-> development. The honest case for this system is drawdown reduction at
-> comparable return, not excess return.
+> **Every window fails its kill criteria.** The gate *ranks* days well —
+> precision 0.859 at 2.39× the base rate with a ~40-day lead — but the
+> posterior is not a trustworthy probability on any window, the two earliest
+> folds never fire, and the `credit_led` archetype has never fired at all.
+> The 2021+ window is also **not a clean holdout**: it was inspected during
+> development. Read
+> [`docs/V6_HONEST_SCORECARD.md`](docs/V6_HONEST_SCORECARD.md) before using
+> any number above. The honest case for this system is drawdown reduction at
+> comparable return — not excess return, and not calibrated probabilities.
 
 ---
 
@@ -135,11 +142,14 @@ forward windows overlap the query's. Each is enforced by a test in
 │   │   ├── backfill_fred.py        # point-in-time FRED repair + refresh
 │   │   ├── collect_data.py         # legacy collector
 │   │   └── populate_crash_events.py# crash episode labelling
-│   ├── v6/validate.py              # walk-forward + BLIND + kill criteria
+│   ├── v6/
+│   │   ├── validate.py             # walk-forward + BLIND + kill criteria
+│   │   └── holdout_eval.py         # single-shot eval against a frozen config
 │   └── database/migrate_to_postgresql.py
 ├── src/v6/
 │   ├── config.py                   # every hyperparameter and boundary
 │   ├── pipeline.py                 # fit_until() / score() — the entry point
+│   ├── freeze.py                   # config hashing / drift detection
 │   ├── features/
 │   │   ├── builder.py              # 40-feature point-in-time vector
 │   │   ├── quality.py              # fabricated-data screen
@@ -186,10 +196,25 @@ See [`docs/DATA_SOURCES.md`](docs/DATA_SOURCES.md).
 
 ---
 
+## Freezing and honest holdouts
+
+The "no retuning" rule is enforced, not promised. `src/v6/freeze.py` hashes
+every decision-affecting setting; `scripts/v6/holdout_eval.py` refuses to run
+if the live config drifts from the freeze, or if the window is not strictly
+after the lock date.
+
+```bash
+# Freeze the current configuration
+python -c "from src.v6.freeze import write_freeze; print(write_freeze('6.1.0'))"
+
+# Later, once new data exists
+python scripts/v6/holdout_eval.py --freeze data/v6_artifacts/frozen_config_v6.1.0.json
+```
+
 ## Tests
 
 ```bash
-venv/bin/pytest -q          # 95 passed, 2 skipped
+venv/bin/pytest -q          # 109 passed, 2 skipped
 ```
 
 `tests/test_v6/` locks down every defect found in the post-mortem: the
