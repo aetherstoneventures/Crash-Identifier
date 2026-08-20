@@ -348,3 +348,141 @@ Two concrete blockers remain, each with a measured cause:
   real rates 2003. This looks like a data-availability limit, not a tuning one.
 - **Fold 4's slope.** Diagnosed (recovery-phase alarms, ITER-004) but not yet
   remedied.
+
+---
+
+## ITER-007 — Recovery features, clean ablation ⚠️ **DIAGNOSIS CONFIRMED, REMEDY SHELVED**
+
+ITER-004 added three recovery features *and* a sixth HMM emission dimension.
+This isolates the features (HMM untouched).
+
+**The HMM change was the confound.** Features alone improve calibration
+substantially:
+
+| Fold | slope without | slope with |
+|---|---|---|
+| 1 | 0.984 | 0.803 |
+| 2 | 0.578 | 0.532 |
+| 3 | 0.668 | **0.906** |
+| 4 | **−0.168** | **+0.198** (inversion fixed) |
+| Pooled | 0.263 | **0.488** |
+
+Fold 4's posterior is no longer inverted — the specific defect the features
+targeted is repaired, which corroborates the ITER-004 diagnosis.
+
+**But the gate collapses:** fold 4 fires 0 times (was 40), fold 3 fails
+criterion 2 (−2.33pp). Net criteria: **0 folds pass** vs 1 without.
+
+**Decision: shelved, not adopted.** The calibration gain is real and the
+firing loss is real, and on the pre-declared criteria the simpler
+configuration is not worse. Recorded here so the finding is not lost: *if
+criterion 1 becomes the binding constraint, these three features are the
+known lever.*
+
+---
+
+## ITER-008 — Precision-based gate tuner ❌ **REFUTED**
+
+**Observation that motivated it:** many (quantile, lift) pairs hit the ~1%
+training fire rate, so ranking by rate alone cannot separate them and the
+tuner was picking among near-ties arbitrarily. For the same fold the chosen
+operating point swung between iterations from (lift 1.6, q 0.80) to
+(lift 3.0, q 0.50) — both ~1% in training, 40 fires vs 0 out of sample.
+
+**Change:** select the admissible candidate with the highest *training
+precision*, tie-broken by proximity to the target rate.
+
+**Result (isolated in ITER-009, without recovery features):** training
+precision does not transfer. Pooled CAGR **+0.51pp → −0.92pp**; fold 4 went
+to 84 fires at −1.56pp (from 40 fires at +1.57pp). Fold 3 still passed, but
+its CAGR fell from +0.58pp to −1.02pp.
+
+**Reverted.** The instability the observation identified is real and remains
+**unresolved** — a known weakness of the current tuner, logged for a future
+attempt with a different objective (e.g. training *economics* rather than
+training precision).
+
+---
+
+## ITER-010 — Stopping rule: why further iteration cannot settle this 🛑
+
+Nine configurations have now been evaluated against the same four
+walk-forward folds. That is a multiple-comparisons problem, and it is worth
+quantifying rather than sensing.
+
+Across 8 configurations × 4 folds = **32 fold-evaluations**, the observed
+marginal pass rates per criterion were:
+
+| Criterion | Pass rate |
+|---|---|
+| [1] reliability slope | 18/32 = 0.562 |
+| [2] CAGR vs B&H | 27/32 = 0.844 |
+| [3] MaxDD ratio | 30/32 = 0.938 |
+| [4] no dominant engine | 32/32 = 1.000 |
+| [5] fire rate in band | 14/32 = 0.438 |
+
+Treating them as independent, P(one fold passes all five) ≈ **0.195**, so
+
+> **P(at least one of 32 fold-evaluations passes by chance) = 0.999**
+
+Finding roughly one passing window at the end of this search is *exactly*
+what chance predicts. It is therefore **not evidence that the configuration
+is good**, and continuing to iterate until more windows pass would be
+overfitting the walk-forward set — the same error as tuning on the holdout,
+one level removed.
+
+**Decision: model iteration stops here.** The remaining uncertainty cannot be
+resolved by more search on this data; it can only be resolved by data the
+search never touched. Everything now routes to the frozen holdout.
+
+### Final configuration (reverted to the ITER-006 state, commit `affe427`)
+Adopted: lift-based gate, variance tempering, causal base-rate tracking,
+calibrated log-odds pooling, archetype Layer 1.
+Shipped OFF with measurements recorded: online remapping (ITER-001),
+recovery features (ITER-004/007), prior re-anchoring (ITER-005),
+precision tuner (ITER-008).
+
+### Final measurement
+
+| Window | Fires | Precision | Lift | Lead | Slope | CAGR Δ | MaxDD ratio | Verdict |
+|---|---|---|---|---|---|---|---|---|
+| Fold 1 | 0 | — | — | — | 0.984 | +0.00pp | 1.000 | ❌ [5] |
+| Fold 2 | 0 | — | — | — | 0.578 | +0.00pp | 1.000 | ❌ [5] |
+| Fold 3 | 37 | 0.297 | 1.69× | 28d | 0.668 | +0.58pp | 0.772 | ✅ **PASS** |
+| Fold 4 | 40 | 1.000 | 2.54× | 23d | −0.168 | +1.57pp | 0.832 | ❌ [1] |
+| Pooled | 77 | 0.662 | 1.85× | 24d | 0.263 | +0.51pp | 1.000 | (diagnostic) |
+| **BLIND** | 12 | **1.000** | **2.67×** | 22d | 0.525 | **+2.43pp** | **0.770** | ✅ **PASS** |
+
+### Critical evaluation of the BLIND pass — read this before quoting it
+
+BLIND passes all five criteria, and three separate reasons say **do not treat
+that as a validated result**:
+
+1. **The window is contaminated.** The Layer 1 archetype split was designed
+   after inspecting 2022 diagnostics (ITER-000). BLIND has functioned as a
+   development set.
+2. **It sits at the end of a 9-configuration search.** Per the calculation
+   above, a passing window arising by chance was near-certain.
+3. **The margin is thin.** The reliability slope is **0.525** against a floor
+   of 0.500 — a 5% perturbation flips it. Criterion 1 is not comfortably met;
+   it is barely met.
+
+What *is* fairly claimed: on the configuration selected by walk-forward
+evidence, the 2021–2026 window shows 12 fires at 1.000 precision, 2.67× lift,
+a 22-day median lead, +2.43pp CAGR against buy-and-hold and a 23% drawdown
+reduction. Whether that survives contact with unseen data is exactly the
+question `scripts/v6/holdout_eval.py` exists to answer.
+
+### Is the objective "mathematically and statistically reached"?
+
+**No — and the analysis above shows it cannot be, by this route.** What has
+been reached:
+
+- A configuration chosen on walk-forward evidence, with every rejected
+  alternative measured and recorded rather than quietly dropped.
+- A quantified reason to stop searching (p = 0.999 of a chance pass).
+- Machinery that makes the next verdict genuinely single-shot: a hashed
+  config freeze and an evaluator that refuses to run on drift or on a window
+  that is not strictly after the lock date.
+
+The remaining step is not a code change. It is **waiting for data**.

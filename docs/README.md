@@ -5,6 +5,7 @@ Start here, in this order.
 | Document | What it answers |
 |---|---|
 | [V6_HONEST_SCORECARD.md](V6_HONEST_SCORECARD.md) | **How well does it work, and where does it still fail?** Results, all five kill criteria, and the disclosure that the 2021+ window is no longer a clean holdout. |
+| [DECISION_LEDGER.md](DECISION_LEDGER.md) | **The project's living memory.** Every iteration tried, what it measured, what was decided and why — including six refuted hypotheses and the arithmetic for why model iteration stopped. Start here if you are picking this work up. |
 | [V6_POSTMORTEM.md](V6_POSTMORTEM.md) | **Is this idea even possible?** The nine defects that made v6.0.0-alpha untestable, each verified numerically, and what the repaired system does and does not establish. |
 | [CRASH_KPI_ENGINE_DESIGN.md](CRASH_KPI_ENGINE_DESIGN.md) | The approved architecture: five engines, the Bayesian aggregator, the L1/L2/L3 gate, and the pre-declared validation protocol. |
 | [DATA_SOURCES.md](DATA_SOURCES.md) | Every column, its FRED series, its point-in-time rule, and why some columns are quarantined. |
@@ -23,10 +24,14 @@ The v6 engine estimates `P(maxDD ≥ x% within h trading days)` for any `x` and
 precision 0.859 at 2.39× the base rate with a ~40-day median lead, and
 drawdown cut from −36.4% to −25.7% on 2021–2026.
 
-It **fails its own kill criteria on every window**. The probabilities are not
-trustworthy in absolute terms (the base rate of the target event varies 3.4×
-across decades), the two earliest folds never fire, the `credit_led` archetype
-has never fired at all, it does not beat buy-and-hold on return, and the
-2021+ window was inspected during development so it is not a clean holdout.
+Two of six evaluation windows pass all five kill criteria — but
+**P(at least one passing by chance across the nine-configuration search that
+produced this) = 0.999**, so that is not evidence. The two earliest folds
+never fire, the `credit_led` archetype has never fired at all, fold 4's
+probabilities remain inverted, and the 2021+ window was inspected during
+development so it is not a clean holdout.
+
+Model iteration has been stopped for that reason. The verdict now depends on
+`scripts/v6/holdout_eval.py` and on data that does not exist yet.
 
 Read the scorecard before quoting any number above.

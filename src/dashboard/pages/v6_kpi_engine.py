@@ -46,12 +46,13 @@ st.set_page_config(page_title="v6 Crash KPI Engine", layout="wide")
 st.title("v6 Crash KPI Engine — Tunable Crash Detector")
 
 st.warning(
-    "**v6.1 — fails its own kill criteria on every window.** The gate ranks "
-    "days usefully (pooled precision 0.859 at 2.39x the base rate, ~40-day "
-    "median lead) but the posterior is not a trustworthy probability, the two "
-    "earliest folds never fire, and the 2021+ window was inspected during "
-    "development so it is not a clean holdout. Read "
-    "`docs/V6_HONEST_SCORECARD.md` before acting on anything here."
+    "**v6.2 — the BLIND pass is not validated.** BLIND (2021-2026) clears all "
+    "five kill criteria (precision 1.000, 2.67x lift, +2.43pp CAGR, MaxDD "
+    "0.770x), but that configuration was reached after nine iterations on the "
+    "same four walk-forward folds, where P(a chance pass) = 0.999. The window "
+    "is also contaminated, and the reliability slope (0.525) clears its floor "
+    "by a hair. On walk-forward only fold 3 passes. Read "
+    "`docs/V6_HONEST_SCORECARD.md` and `docs/DECISION_LEDGER.md` first."
 )
 
 # --- Controls --------------------------------------------------------------

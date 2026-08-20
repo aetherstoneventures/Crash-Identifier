@@ -8,29 +8,35 @@ gate turns that into an action signal — with the **crash threshold x% and the
 horizon h chosen at query time**, not baked into training.
 
 ```
-POOLED WALK-FORWARD (1999-2026, x = 10%, h = 63d)
+BLIND (2021-01-01 → 2026-08-19, x = 10%, h = 63d)
 ──────────────────────────────────────────────────
-  Gate precision .......... 0.859    (2.39× base rate)
-  Median lead ............. 40 trading days
-  Reliability slope ....... 0.419    ← FAILS kill criterion 1
-  CAGR .................... 8.82%    vs 9.08% buy & hold
+  Gate precision .......... 1.000    (2.67× base rate, 12 fires)
+  Median lead ............. 22 trading days
+  CAGR .................... 15.49%   vs 13.07% buy & hold
+  MaxDD ................... -28.0%   vs -36.4% buy & hold
+  Sharpe .................. 0.80     vs 0.67
+  Kill criteria ........... 5 / 5 PASS   ← but see below
 
-BLIND (2021-01-01 → 2026-08-19)
-  Gate precision .......... 0.750    (2.00× base rate)
-  MaxDD ................... -25.7%   vs -36.4% buy & hold
-  Sharpe .................. 0.71     vs 0.67
-  Kill criteria ........... FAILS (reliability slope 0.330)
+WALK-FORWARD (the evidence set)
+  Fold 3 (2012-2020) ...... PASS
+  Folds 1, 2, 4 ........... FAIL
 ```
 
-> **Every window fails its kill criteria.** The gate *ranks* days well —
-> precision 0.859 at 2.39× the base rate with a ~40-day lead — but the
-> posterior is not a trustworthy probability on any window, the two earliest
-> folds never fire, and the `credit_led` archetype has never fired at all.
-> The 2021+ window is also **not a clean holdout**: it was inspected during
-> development. Read
-> [`docs/V6_HONEST_SCORECARD.md`](docs/V6_HONEST_SCORECARD.md) before using
-> any number above. The honest case for this system is drawdown reduction at
-> comparable return — not excess return, and not calibrated probabilities.
+> **The BLIND pass is not a validated result, and the reason is arithmetic.**
+> This configuration was reached after nine iterations against the same four
+> walk-forward folds. Across those 32 fold-evaluations,
+> **P(at least one window passing all five criteria by chance) = 0.999.** The
+> 2021+ window is also contaminated — it was inspected during development —
+> and its reliability slope of 0.525 clears the 0.500 floor by a hair.
+>
+> Model iteration was therefore **stopped** rather than continued until more
+> windows passed. The real verdict is routed to a frozen, hash-verified
+> holdout that currently reports *"0 trading days past the lock date, need
+> ~126 more."*
+>
+> Read [`docs/V6_HONEST_SCORECARD.md`](docs/V6_HONEST_SCORECARD.md) and
+> [`docs/DECISION_LEDGER.md`](docs/DECISION_LEDGER.md) before using any
+> number above.
 
 ---
 
