@@ -385,11 +385,14 @@ class PosteriorCalibrator:
     overlapping outcome windows; random folds would leak across the split.
     """
     method: str = "platt"      # 'platt' | 'isotonic' | 'none'
+    temper: bool = True        # shrink toward the prior by the CV slope
     n_blocks: int = 4
     min_samples: int = 200
     model_: object = None
     fitted_: bool = False
     train_slope_: float = float("nan")
+    temper_: float = 1.0
+    prior_logit_: float = 0.0
 
     def _new_model(self):
         if self.method == "isotonic":
@@ -439,6 +442,29 @@ class PosteriorCalibrator:
             self.train_slope_ = float(np.polyfit(oof[ok], yy[ok], 1)[0])
 
         self.model_ = self._fit_model(self._new_model(), p, yy)
+
+        # VARIANCE TEMPERING
+        # ------------------
+        # The cross-fitted reliability slope measured just above says how far
+        # this map will over- or under-disperse out of sample. A slope of s
+        # means the empirical rate moves only s units per unit of predicted
+        # probability — i.e. predictions are spread about 1/s times too
+        # widely. Shrinking each prediction's log-odds deviation from the
+        # prior by exactly s pulls the expected out-of-sample slope back
+        # toward 1.
+        #
+        # This costs nothing in ranking: the transform is strictly monotone
+        # for any s > 0, so the gate's ordering of days — and therefore its
+        # precision — is untouched. Only the *scale* of the probabilities
+        # changes, which is precisely what criterion 1 measures.
+        #
+        # The factor is estimated on held-out training folds, never on the
+        # scored window.
+        self.temper_ = 1.0
+        if self.temper and np.isfinite(self.train_slope_):
+            self.temper_ = float(np.clip(self.train_slope_, 0.15, 1.0))
+        self.prior_logit_ = float(_logit(np.array([np.mean(yy)]))[0])
+
         self.fitted_ = True
         return self
 
@@ -447,8 +473,140 @@ class PosteriorCalibrator:
             return posterior
         out = np.full(len(posterior), np.nan)
         finite = np.isfinite(posterior)
-        out[finite] = self._predict(self.model_, posterior[finite])
+        mapped = self._predict(self.model_, posterior[finite])
+        if self.temper_ < 1.0:
+            deviation = _logit(mapped) - self.prior_logit_
+            mapped = _expit(self.prior_logit_ + self.temper_ * deviation)
+        out[finite] = mapped
         return out
+
+
+class AdaptiveCalibrator:
+    """Causal online recalibration that tracks a drifting base rate.
+
+    THE PROBLEM
+    -----------
+    The prevalence of the target event is strongly non-stationary. Measured
+    across the walk-forward folds, P(maxDD >= 10% within 63d) is 0.603, 0.327,
+    0.176, 0.394 — a **3.4x swing**. A prior anchored on the training base
+    rate, and a calibration map fitted once on training outcomes, both encode
+    a prevalence that no longer holds when the scoring window's differs.
+    Three static maps (none / Platt / isotonic) were compared in ITER-000 and
+    none fixed it, because the defect is not the shape of the map but the
+    staleness of what it encodes.
+
+    THE OPENING
+    -----------
+    A forward-looking label becomes *knowable* with a lag. The outcome for
+    date `t - h` — did the index fall x% during the h days after it — is fully
+    determined by prices at date `t`. So at every scoring date the system may
+    legitimately look back at outcomes that have already resolved, and update
+    itself. No future information is involved: this is the same information a
+    person sitting at date t would have.
+
+    That makes recalibration an **online** problem rather than a train-once
+    problem, and it lets both the calibration map and the prior track the
+    prevalence actually being observed.
+
+    THE DISCIPLINE
+    --------------
+    At the scoring date in calendar position `i`, only labels at positions
+    `<= i - horizon_td` may be used. That single inequality is what separates
+    this from leakage, so it is enforced in one place (`_fit_window`) and
+    checked by `tests/test_v6/test_adaptive.py`, which asserts that scoring a
+    truncated history reproduces the answers for the dates it contains.
+
+    A trailing window (rather than an expanding one) is used deliberately:
+    the goal is to track drift, and an expanding window would dilute a regime
+    shift with decades of stale prevalence.
+    """
+
+    def __init__(self, method: str = "platt", window_td: int = 1260,
+                 refit_every_td: int = 21, min_samples: int = 250):
+        self.method = method
+        self.window_td = window_td
+        self.refit_every_td = refit_every_td
+        self.min_samples = min_samples
+        self.n_refits_: int = 0
+        self.last_base_rate_: float = float("nan")
+
+    def _fit_window(self, i: int, horizon_td: int) -> Tuple[int, int]:
+        """Positional [lo, hi) of labels resolved by calendar position `i`.
+
+        `hi = i - horizon_td` is the whole discipline: a label at position
+        `hi` closed exactly at position `i`, so anything at or before it is
+        known, and anything after it is not.
+        """
+        hi = i - horizon_td
+        if hi <= 0:
+            # Nothing has resolved yet. Return an empty window rather than a
+            # negative `hi`, which would slice as `values[0:-h]` — nearly the
+            # whole array — if a caller ever dropped the size guard.
+            return 0, 0
+        lo = max(0, hi - self.window_td)
+        return lo, hi
+
+    def apply(self, posterior: pd.Series, y: pd.Series, horizon_td: int,
+              fallback_base_rate: float, remap: bool = True
+              ) -> Tuple[pd.Series, pd.Series]:
+        """Track the live base rate, and optionally remap the posterior.
+
+        Parameters
+        ----------
+        remap : bool
+            When False, only the trailing base rate is computed and the
+            posterior passes through untouched.
+
+            **This defaults to True but ships as False** (see
+            ``AggregatorConfig.adaptive_calibration``). Refitting the map on
+            a trailing window was measured in ITER-001 and it *destroys*
+            discrimination: posterior standard deviation fell from 0.174 to
+            0.098, gate fires from 61 to 3, pooled precision from 0.859 to
+            0.273, and per-fold reliability slopes went negative. A static
+            map fitted on the full training window is steep because it has
+            enough data to find the relationship; a map refitted monthly on
+            five noisy years is flat, and a flat map collapses every
+            prediction toward the local base rate.
+
+            Tracking the base rate is cheap and useful; refitting the map on
+            the same window is not. The two are separated here so the useful
+            half survives.
+        """
+        idx = posterior.index
+        n = len(idx)
+        post_values = posterior.values
+        y_values = y.reindex(idx).values
+
+        out = np.array(post_values, dtype=float, copy=True)
+        base_rates = np.full(n, fallback_base_rate, dtype=float)
+
+        model: Optional[PosteriorCalibrator] = None
+        base_rate = fallback_base_rate
+        step = max(1, self.refit_every_td)
+
+        for start in range(0, n, step):
+            lo, hi = self._fit_window(start, horizon_td)
+            if hi - lo >= self.min_samples:
+                p_train = post_values[lo:hi]
+                y_train = y_values[lo:hi]
+                usable = np.isfinite(p_train) & np.isfinite(y_train)
+                if usable.sum() >= self.min_samples:
+                    if remap:
+                        candidate = PosteriorCalibrator(method=self.method).fit(
+                            p_train[usable], y_train[usable]
+                        )
+                        if candidate.fitted_:
+                            model = candidate
+                            self.n_refits_ += 1
+                    base_rate = float(np.mean(y_train[usable]))
+
+            end = min(start + step, n)
+            base_rates[start:end] = base_rate
+            if remap and model is not None:
+                out[start:end] = model.transform(post_values[start:end])
+
+        self.last_base_rate_ = base_rate
+        return (pd.Series(out, index=idx), pd.Series(base_rates, index=idx))
 
 
 # ---------------------------------------------------------------------------
@@ -485,6 +643,9 @@ class CrashKPIAggregator:
     gate_thresholds_: Optional[Dict[str, float]] = None
     gate_tuning_: Dict[str, float] = field(default_factory=dict)
     posterior_calibrator_: Optional[PosteriorCalibrator] = None
+    adaptive_: Optional["AdaptiveCalibrator"] = None
+    realized_y_: Optional[pd.Series] = None
+    horizon_td_: int = 63
 
     # ---------- Per-engine pressure mappings ----------
     @staticmethod
@@ -601,6 +762,17 @@ class CrashKPIAggregator:
         # runs with the calibrator cleared so `aggregate` returns the raw
         # pool, then the fitted map applies to every later call — including
         # the gate tuning below, which must see final probabilities.
+        # The base-rate tracker is always built; whether it also remaps the
+        # posterior is controlled by `adaptive_calibration`.
+        self.adaptive_ = (
+            AdaptiveCalibrator(
+                method=self.aggregator_cfg.posterior_calibration,
+                window_td=self.aggregator_cfg.adaptive_window_td,
+                refit_every_td=self.aggregator_cfg.adaptive_refit_every_td,
+            )
+            if self.aggregator_cfg.adaptive_base_rate else None
+        )
+
         self.posterior_calibrator_ = None
         if features is not None:
             train_features = features.loc[features.index <= idx.max()]
@@ -609,7 +781,8 @@ class CrashKPIAggregator:
                 common = raw_scored.index.intersection(y.index)
                 if len(common) >= 200:
                     self.posterior_calibrator_ = PosteriorCalibrator(
-                        method=self.aggregator_cfg.posterior_calibration
+                        method=self.aggregator_cfg.posterior_calibration,
+                        temper=self.aggregator_cfg.temper_calibration,
                     ).fit(
                         raw_scored.loc[common, "posterior_mean"].values,
                         y.loc[common].values,
@@ -617,9 +790,24 @@ class CrashKPIAggregator:
             except RuntimeError:
                 self.posterior_calibrator_ = None
 
+        return self._finish_fit(engine_outputs, features, idx)
+
+    def _finish_fit(self, engine_outputs: Dict[str, pd.DataFrame],
+                    features: Optional[pd.DataFrame], idx: pd.Index
+                    ) -> "CrashKPIAggregator":
         if features is not None and self.gate_cfg.auto_tune:
             self._tune_gate(engine_outputs, features.loc[features.index <= idx.max()])
         return self
+
+    def set_realized_labels(self, y_full: pd.Series, horizon_td: int) -> None:
+        """Supply the full-history outcome series for online recalibration.
+
+        Passing future-dated labels here is safe *only* because
+        `AdaptiveCalibrator` consumes them with a strict `t - horizon_td`
+        lag — see its docstring. Nothing else in this class reads them.
+        """
+        self.realized_y_ = y_full
+        self.horizon_td_ = int(horizon_td)
 
     # ------------------------------------------------------------------
     def _tune_gate(self, engine_outputs: Dict[str, pd.DataFrame],
@@ -666,39 +854,58 @@ class CrashKPIAggregator:
         # absolute threshold is reported in `gate_summary()`.
         floor_post = self.gate_cfg.min_posterior_threshold
 
+        # Live base rate over the training window, for the lift requirement.
+        live_br = scored["base_rate_live"] if "base_rate_live" in scored else None
+        use_lift = live_br is not None and float(live_br.std()) > 1e-9
+
         best = None
         for q in self.gate_cfg.tune_quantile_grid:
             t1, t2 = l1.quantile(q), l2.quantile(q)
-            tp = post.quantile(q)
-            if not all(np.isfinite(v) for v in (t1, t2, tp)):
+            if not all(np.isfinite(v) for v in (t1, t2)):
                 continue
-            # Never act on a posterior below the base rate: a "warning" that
-            # is less likely than the unconditional event is not a warning.
-            tp = max(float(tp), floor_post, float(self.base_rate_))
-            fires = (
-                base & (l1 >= t1).fillna(False) & (l2 >= t2).fillna(False)
-                & (post >= tp).fillna(False)
-            )
-            rate = float(fires.mean())
-            if rate < floor_rate or rate > ceil_rate:
-                continue
-            # Strictest admissible = smallest rate at or above the target;
-            # if nothing reaches the target, take the largest rate available.
-            key = (rate >= target, -rate if rate >= target else rate)
-            if best is None or key > best[0]:
-                best = (key, {"quantile": float(q), "layer1": float(t1),
-                              "layer2": float(t2),
-                              "layer3": float(self.gate_cfg.layer3_dd_threshold),
-                              "posterior": tp,
-                              "train_fire_rate": rate})
+            layers = base & (l1 >= t1).fillna(False) & (l2 >= t2).fillna(False)
+
+            if use_lift:
+                # Search lift multipliers; keep the setting whose training
+                # fire rate is admissible and closest to target from above.
+                candidates = [(lift, layers & (post >= (live_br * lift)).fillna(False)
+                               & (post >= floor_post).fillna(False))
+                              for lift in self.gate_cfg.tune_lift_grid]
+            else:
+                tp = max(float(post.quantile(q)), floor_post, float(self.base_rate_))
+                candidates = [(None, layers & (post >= tp).fillna(False))]
+
+            for lift, fires in candidates:
+                rate = float(fires.mean())
+                if rate < floor_rate or rate > ceil_rate:
+                    continue
+                key = (rate >= target, -rate if rate >= target else rate)
+                if best is None or key > best[0]:
+                    entry = {"quantile": float(q), "layer1": float(t1),
+                             "layer2": float(t2),
+                             "layer3": float(self.gate_cfg.layer3_dd_threshold),
+                             "train_fire_rate": rate}
+                    if lift is None:
+                        entry["posterior"] = max(
+                            float(post.quantile(q)), floor_post,
+                            float(self.base_rate_))
+                    else:
+                        entry["posterior_lift"] = float(lift)
+                    best = (key, entry)
+
         if best is None:
             self.gate_thresholds_ = None
             self.gate_tuning_ = {"status": "no admissible threshold; using GateConfig"}
             return
-        self.gate_thresholds_ = {
+        thresholds = {
             "layer1": best[1]["layer1"], "layer2": best[1]["layer2"],
-            "layer3": best[1]["layer3"], "posterior": best[1]["posterior"],
+            "layer3": best[1]["layer3"],
         }
+        if "posterior_lift" in best[1]:
+            thresholds["posterior_lift"] = best[1]["posterior_lift"]
+        else:
+            thresholds["posterior"] = best[1]["posterior"]
+        self.gate_thresholds_ = thresholds
         self.gate_tuning_ = best[1]
 
     def _weights_from_skill(self, skill: Dict[str, float]) -> Dict[str, float]:
@@ -796,13 +1003,58 @@ class CrashKPIAggregator:
         total_evidence = (evidence.where(present, 0.0) * norm_w).sum(axis=1)
         post_logit = prior_logit + total_evidence.where(w_sum > 0)
         post_raw = pd.Series(_expit(post_logit.values), index=idx).where(w_sum > 0)
+
         # Final recalibration (monotone, so the ranking of days is unchanged).
+        # Adaptive mode tracks the drifting base rate using only outcomes that
+        # had already resolved at each date; static mode applies one map
+        # fitted on the training window.
         if self.posterior_calibrator_ is not None and self.posterior_calibrator_.fitted_:
             post_mean = pd.Series(
                 self.posterior_calibrator_.transform(post_raw.values), index=idx
             )
         else:
             post_mean = post_raw
+
+        # Track the live base rate for the gate's lift requirement. When
+        # `remap` is enabled this ALSO rewrites the posterior — refuted in
+        # ITER-001, see AdaptiveCalibrator.apply.
+        live_base_rate = pd.Series(self.base_rate_, index=idx)
+        if (self.adaptive_ is not None and self.realized_y_ is not None
+                and len(self.realized_y_)):
+            remapped, live_base_rate = self.adaptive_.apply(
+                post_mean, self.realized_y_, self.horizon_td_, self.base_rate_,
+                remap=self.aggregator_cfg.adaptive_calibration,
+            )
+            if self.aggregator_cfg.adaptive_calibration:
+                post_mean = remapped
+
+            # RE-ANCHORING (distinct from remapping)
+            # --------------------------------------
+            # The calibrated posterior is centred on the *training* base rate,
+            # because that is the only prevalence available when the map is
+            # fitted. Measured train-vs-test gaps are large and signed both
+            # ways: fold 1 trains at 0.219 and is tested at 0.603, fold 3
+            # trains at 0.338 and is tested at 0.176. Pooling forecasts whose
+            # centres are that far apart is a large part of why the pooled
+            # reliability curve degrades.
+            #
+            # Re-anchoring shifts only the *centre* of the distribution onto
+            # the prevalence currently being observed, keeping the evidence
+            # term — the deviation the engines actually produced — intact:
+            #
+            #     logit(P') = logit(live_br) + [ logit(P) - logit(train_br) ]
+            #
+            # This is the opposite trade to ITER-001. Refitting the map on a
+            # trailing window destroyed spread (std 0.174 -> 0.098) because a
+            # short window cannot estimate a slope. Re-anchoring estimates
+            # only a mean, which a short window *can* do, and leaves the
+            # spread untouched. It is strictly monotone within any period of
+            # constant live base rate, so it does not reorder days.
+            if self.aggregator_cfg.reanchor_prior:
+                train_logit = float(_logit(np.array([self.base_rate_]))[0])
+                live_logit = _logit(live_base_rate.values)
+                deviation = _logit(post_mean.values) - train_logit
+                post_mean = pd.Series(_expit(live_logit + deviation), index=idx)
 
         # 3. Confidence — the GEOMETRIC MEAN of three components, each in
         #    [0, 1]. A geometric mean keeps the "one bad component drags the
@@ -842,7 +1094,22 @@ class CrashKPIAggregator:
             "layer3": self.gate_cfg.layer3_dd_threshold,
             "posterior": self.gate_cfg.posterior_threshold,
         }
-        gate_post = post_mean >= thr["posterior"]
+        # The posterior condition is a **lift** requirement, not an absolute
+        # probability: fire only when the conditional probability is at least
+        # `lift x` the unconditional one currently being observed.
+        #
+        # An absolute cut cannot hold its meaning while prevalence drifts.
+        # With the live base rate ranging 0.22-0.49 across the scored window,
+        # a fixed 0.35 threshold means "1.6x lift" in a calm regime and "0.7x"
+        # — i.e. less likely than average — in a stressed one, which is not a
+        # warning at all. Requiring lift keeps the statement constant:
+        # "materially more likely than usual, right now".
+        lift_required = thr.get("posterior_lift")
+        if lift_required is not None:
+            floor = self.gate_cfg.min_posterior_threshold
+            gate_post = (post_mean >= (live_base_rate * lift_required)) & (post_mean >= floor)
+        else:
+            gate_post = post_mean >= thr["posterior"]
         gate_conf = confidence >= self.gate_cfg.confidence_threshold
         gate_l1 = l1 >= thr["layer1"]
         gate_l2 = l2 >= thr["layer2"]
@@ -869,6 +1136,7 @@ class CrashKPIAggregator:
             "posterior_mean": post_mean,
             "posterior_logit": post_logit,
             "posterior_uncalibrated": post_raw,
+            "base_rate_live": live_base_rate,
             "confidence": confidence,
             "conf_agreement": agreement,
             "conf_coverage": coverage,

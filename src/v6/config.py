@@ -125,6 +125,33 @@ class AggregatorConfig:
     # See CrashKPIAggregator / PosteriorCalibrator for the measured
     # comparison behind this default.
     posterior_calibration: str = "platt"
+    # Online recalibration. When True the posterior map and the prior are
+    # refitted as outcomes resolve, using only labels older than one horizon
+    # (see AdaptiveCalibrator). This targets base-rate non-stationarity, which
+    # a single training-fitted map cannot track.
+    # REFUTED in ITER-001 — kept selectable, shipped OFF. Refitting the
+    # posterior map on a trailing window collapses discrimination (posterior
+    # std 0.174 -> 0.098, gate fires 61 -> 3, pooled precision 0.859 -> 0.273,
+    # fold reliability slopes negative). See docs/DECISION_LEDGER.md.
+    adaptive_calibration: bool = False
+    # Track the live base rate causally (labels older than one horizon only).
+    # This is the half of ITER-001 that survived: it feeds the gate's lift
+    # requirement without touching the posterior.
+    adaptive_base_rate: bool = True
+    # Shrink calibrated log-odds toward the prior by the cross-fitted
+    # reliability slope, so out-of-sample dispersion matches outcomes. Strictly
+    # monotone, so gate ranking and precision are unaffected — only the
+    # probability scale that criterion 1 measures.
+    temper_calibration: bool = True
+    # REFUTED in ITER-005 — kept selectable, shipped OFF. Re-anchoring the
+    # posterior on the live base rate while the gate ALSO divides by it
+    # double-counts the level and cancels it: the fire condition collapses to
+    # "evidence factor >= lift", which almost never holds. Result was 0 fires
+    # in every fold. Only safe in combination with an absolute posterior
+    # threshold, not the lift gate. See docs/DECISION_LEDGER.md.
+    reanchor_prior: bool = False
+    adaptive_window_td: int = 1260       # ~5y trailing window
+    adaptive_refit_every_td: int = 21    # refit monthly
 
 
 # ---------------------------------------------------------------------------
@@ -171,6 +198,12 @@ class GateConfig:
     # unconditional event rate is not a warning.
     min_posterior_threshold: float = 0.35
     target_fire_rate: float = 0.010          # 1% of training days
+    # Lift multipliers searched when the gate uses a relative posterior
+    # condition (posterior >= lift x live base rate). 1.0 would fire whenever
+    # the day is merely average, so the grid starts above it.
+    tune_lift_grid: Tuple[float, ...] = (
+        1.2, 1.4, 1.6, 1.8, 2.0, 2.25, 2.5, 3.0
+    )
     tune_quantile_grid: Tuple[float, ...] = (
         0.50, 0.55, 0.60, 0.65, 0.70, 0.75, 0.80, 0.85, 0.90, 0.95
     )

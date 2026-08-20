@@ -184,6 +184,14 @@ class CrashKPIPipeline:
             for name, df in engine_outputs.items()
         }
         train_features = self.features_.loc[self.features_.index <= cutoff]
+
+        # Full-history labels for online recalibration. These are consumed
+        # ONLY with a strict `t - horizon_td` lag inside AdaptiveCalibrator,
+        # which is what makes it causal: the outcome of date t-h is fully
+        # determined by prices at date t, so a reader at t already knows it.
+        y_full = crash_label(self.prices_, x_pct=x_pct, horizon_td=horizon_td)
+        self.aggregator.set_realized_labels(y_full, horizon_td)
+
         self.aggregator.fit(train_outputs, y_train, features=train_features)
 
     # ------------------------------------------------------------------
