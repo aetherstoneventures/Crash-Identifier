@@ -1,48 +1,56 @@
-# `scripts/` — pipeline & research
+# `scripts/` — pipeline entry points
 
-The single entry-point is **[`../run.sh`](../run.sh)** at the repo root.
-This directory contains the individual pipeline steps it invokes, plus
-research scripts kept for reproducibility.
+The single entry point is **[`../run.sh`](../run.sh)** at the repo root. This
+directory holds the individual steps it invokes.
 
 ```
 scripts/
 ├── data/
-│   ├── collect_data.py            # FRED + Yahoo macro/market pulls
-│   ├── fetch_v5_features.py       # daily v5 feature builder
-│   ├── populate_crash_events.py   # labels 15%+ drawdown episodes
-│   └── purge_bad_rows.py          # data hygiene
-├── training/
-│   ├── train_statistical_model_v3.py  # StatV3 risk-factor model
-│   ├── train_v5_walkforward.py        # CANONICAL v5 trainer
-│   └── train_bottom_predictor.py      # re-entry timing model
-├── utils/
-│   ├── generate_predictions_v5.py     # populate StatV3 predictions
-│   ├── generate_bottom_predictions.py # populate bottom predictions
-│   └── v5_backtest.py                 # standalone backtest CLI
-├── evaluation/
-│   ├── evaluate_crash_detection.py    # honest BLIND scorecard
-│   └── evaluate_bottom_predictions.py
-├── research/                          # frozen, reproducible experiments
-│   ├── experiment_A_vol_gate.py       # NULL effect
-│   ├── experiment_C_reentry.py        # MA50 oracle ceiling +0.5pp
-│   ├── experiment_D_multi_asset.py    # FAIL kill criteria
-│   └── experiment_D_round2_retune.py
+│   ├── backfill_fred.py           # point-in-time FRED repair + refresh
+│   ├── collect_data.py            # legacy FRED/Yahoo collector
+│   └── populate_crash_events.py   # labels drawdown episodes into crash_events
+├── v6/
+│   └── validate.py                # walk-forward + BLIND + kill criteria
 └── database/
-    └── migrate_to_postgresql.py
+    └── migrate_to_postgresql.py   # optional SQLite -> Postgres migration
 ```
 
-## Running individual steps
-
-Each script is self-contained and runs from the repo root:
+## The pipeline
 
 ```bash
-venv/bin/python3 -W ignore scripts/training/train_v5_walkforward.py
+# 1. Repair and refresh the data layer (idempotent; prints coverage deltas)
+python scripts/data/backfill_fred.py
+
+# 2. Label historical crash episodes
+python scripts/data/populate_crash_events.py
+
+# 3. Validate: walk-forward folds, BLIND, and all five kill criteria
+python scripts/v6/validate.py both --x 10 --h 63
 ```
 
-## Research
+Step 1 needs `FRED_API_KEY` in `.env`. It is the step that keeps the price
+series full-history and stamps macro releases on their real publication dates
+— see [`../docs/DATA_SOURCES.md`](../docs/DATA_SOURCES.md).
 
-The four `experiment_*.py` scripts produced the JSON verdicts in `data/`
-(consumed by the dashboard's "Why v5 stays" panel and documented in
-[`../docs/FUTURE_WORK_RESULTS.md`](../docs/FUTURE_WORK_RESULTS.md)). They
-are kept verbatim for reproducibility but are NOT part of the
-production pipeline.
+Step 3 writes `data/v6_artifacts/v6_validation_x{X}_h{H}.json` and prints a
+PASS/FAIL verdict per fold and for BLIND.
+
+## Useful variations
+
+```bash
+# Different crash definition — no retraining required
+python scripts/v6/validate.py blind --x 20 --h 126
+
+# Refresh a single series
+python scripts/data/backfill_fred.py --only NASDAQCOM
+
+# See what would change without writing to the database
+python scripts/data/backfill_fred.py --dry-run
+```
+
+## Removed
+
+`scripts/training/`, `scripts/evaluation/`, `scripts/research/`,
+`scripts/forward_risk/` and `scripts/utils/` belonged to v5 and earlier. They
+were deleted in commit `1e97ed3` and remain available at git tag
+`pre-v6-archive` and branch `v5-benchmark-protected`.

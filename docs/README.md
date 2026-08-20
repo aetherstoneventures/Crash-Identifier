@@ -1,82 +1,37 @@
-# Documentation Index
+# `docs/` — index
 
-> Production reference for the current system:
-> - **[V5_HONEST_SCORECARD.md](V5_HONEST_SCORECARD.md)** — what v5 actually does on BLIND (near-coincident regime detector, median lead −9d)
-> - **[FORWARD_RISK.md](FORWARD_RISK.md)** — 1-month probabilistic forecast (only h=21 ships; h=63/126/252 SHELVED)
-> - **[FUTURE_WORK_RESULTS.md](FUTURE_WORK_RESULTS.md)** — v5.1 / v6 / v5_multi all FAILED BLIND kill criteria
-> - **[V6_NEGATIVE_RESULT.md](V6_NEGATIVE_RESULT.md)** — predictive-label experiment, killed
->
-> The files below are kept for historical context but are **stale (pre-v5 era)**.
+Start here, in this order.
 
-## 🚀 Quick Start
-- **[QUICK_START_GUIDE.md](QUICK_START_GUIDE.md)** - Get started in 5 minutes
+| Document | What it answers |
+|---|---|
+| [V6_HONEST_SCORECARD.md](V6_HONEST_SCORECARD.md) | **How well does it work, and where does it still fail?** Results, all five kill criteria, and the disclosure that the 2021+ window is no longer a clean holdout. |
+| [DECISION_LEDGER.md](DECISION_LEDGER.md) | **The project's living memory.** Every iteration tried, what it measured, what was decided and why — including six refuted hypotheses and the arithmetic for why model iteration stopped. Start here if you are picking this work up. |
+| [V6_POSTMORTEM.md](V6_POSTMORTEM.md) | **Is this idea even possible?** The nine defects that made v6.0.0-alpha untestable, each verified numerically, and what the repaired system does and does not establish. |
+| [CRASH_KPI_ENGINE_DESIGN.md](CRASH_KPI_ENGINE_DESIGN.md) | The approved architecture: five engines, the Bayesian aggregator, the L1/L2/L3 gate, and the pre-declared validation protocol. |
+| [DATA_SOURCES.md](DATA_SOURCES.md) | Every column, its FRED series, its point-in-time rule, and why some columns are quarantined. |
+| [HISTORICAL_CRASHES_REFERENCE.md](HISTORICAL_CRASHES_REFERENCE.md) | Reference table of historical US equity crashes. |
+| [INVESTOR_LAWS.md](INVESTOR_LAWS.md) | Background research notes on crash dynamics. |
+| [CHANGELOG.md](CHANGELOG.md) | Version history. |
 
-## 🏗️ Architecture & Design (historical)
-- **[ARCHITECTURE.md](ARCHITECTURE.md)** - Legacy 5-ML system architecture
-- **[METHODOLOGY.md](METHODOLOGY.md)** - Legacy statistical / GB+RF methodology
+Freezing and holdout machinery lives in `src/v6/freeze.py` and
+`scripts/v6/holdout_eval.py` — see the scorecard's *"The BLIND set is not
+blind"* section for why it exists.
 
-## 📚 Reference Documentation
-- **[HISTORICAL_CRASHES_REFERENCE.md](HISTORICAL_CRASHES_REFERENCE.md)** - 11 documented market crashes (1980-2022)
-- **[REPRODUCIBILITY_GUIDE.md](REPRODUCIBILITY_GUIDE.md)** - (historical) v2 pipeline reproduction
+## The short version
 
----
+The v6 engine estimates `P(maxDD ≥ x% within h trading days)` for any `x` and
+`h` you ask for, from a single fit. Its gate *ranks* days usefully — pooled
+precision 0.859 at 2.39× the base rate with a ~40-day median lead, and
+drawdown cut from −36.4% to −25.7% on 2021–2026.
 
-## 📊 System Overview
+Two of six evaluation windows pass all five kill criteria — but
+**P(at least one passing by chance across the nine-configuration search that
+produced this) = 0.999**, so that is not evidence. The two earliest folds
+never fire, the `credit_led` archetype has never fired at all, fold 4's
+probabilities remain inverted, and the 2021+ window was inspected during
+development so it is not a clean holdout.
 
-### Data Coverage
-- **20 High-Quality Indicators** with 100% data coverage (1982-2025)
-- **11 Historical Crashes** documented and validated
-- **11,434 Daily Records** with perfect continuity
+Model iteration has been stopped for that reason. The verdict now depends on
+`scripts/v6/holdout_eval.py` and on data that does not exist yet.
 
-### Model Performance
-- **ML Model V5**: 81.8% recall (9/11 crashes detected), no overfitting
-- **Statistical Model V2**: 81.8% recall (9/11 crashes detected)
-- **Bottom Predictor**: ML-based optimal re-entry timing
-
-### Key Features
-- ✅ Real-time crash probability predictions
-- ✅ Optimal market re-entry timing (bottom predictions)
-- ✅ Interactive Streamlit dashboard
-- ✅ Fully reproducible pipeline
-
----
-
-## 📁 File Organization
-
-```
-docs/
-├── README.md (this file)
-├── QUICK_START_GUIDE.md - Get started in 5 minutes
-├── ARCHITECTURE.md - System architecture
-├── METHODOLOGY.md - Prediction methodology
-├── HISTORICAL_CRASHES_REFERENCE.md - 11 documented crashes
-├── MODEL_SELECTION_FAQ.md - FAQ about models
-└── REPRODUCIBILITY_GUIDE.md - Reproduce all results
-```
-
----
-
-## 📖 Recommended Reading Order
-
-1. **[QUICK_START_GUIDE.md](QUICK_START_GUIDE.md)** - Start here!
-2. **[ARCHITECTURE.md](ARCHITECTURE.md)** - System design
-3. **[METHODOLOGY.md](METHODOLOGY.md)** - How predictions work
-4. **[HISTORICAL_CRASHES_REFERENCE.md](HISTORICAL_CRASHES_REFERENCE.md)** - Crash data
-5. **[REPRODUCIBILITY_GUIDE.md](REPRODUCIBILITY_GUIDE.md)** - Reproduce results
-6. **[MODEL_SELECTION_FAQ.md](MODEL_SELECTION_FAQ.md)** - Common questions
-
----
-
-## 🎯 Production Recommendations
-
-1. **Use both models** (ML + Statistical) for redundancy
-2. **Monitor rate-of-change** indicators for early warning
-3. **Review predictions daily** during high-risk periods
-4. **Validate against market conditions** and news
-5. **Use bottom predictions** for optimal re-entry timing
-
----
-
-## ❓ Questions?
-
-Refer to [MODEL_SELECTION_FAQ.md](MODEL_SELECTION_FAQ.md) for common questions about model selection and usage.
+Read the scorecard before quoting any number above.

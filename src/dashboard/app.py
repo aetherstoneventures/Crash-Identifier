@@ -21,7 +21,7 @@ from src.utils.config import DATABASE_URL
 from src.utils.database import DatabaseManager, Indicator, Prediction
 from src.data_collection.fred_collector import FREDCollector
 from src.data_collection.yahoo_collector import YahooCollector
-from src.feature_engineering.feature_pipeline import FeaturePipeline
+# v6 KPI engine surfaces via src.v6.pipeline (see pages/v6_kpi_engine.py)
 # Note: Models are loaded from pickle files, not imported as classes
 
 # Initialize database manager

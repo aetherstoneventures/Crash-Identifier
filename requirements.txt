@@ -5,6 +5,9 @@ fredapi==0.5.2
 yfinance==0.2.44
 pandas==2.2.3
 numpy==1.26.4
+# Direct dependency: src/v6/engines/regime.py uses scipy.special.logsumexp
+# and scipy.stats.multivariate_normal for the HMM forward filter.
+scipy==1.17.1
 scikit-learn==1.5.2
 openpyxl==3.1.5
 tensorflow==2.15.0
@@ -13,6 +16,12 @@ xgboost==2.1.2
 lightgbm==4.5.0
 catboost==1.2.7
 imbalanced-learn==0.12.4
+
+# ============================================================================
+# v6 KPI ENGINE — REGIME & TIME-SERIES
+# ============================================================================
+hmmlearn==0.3.3        # Engine 2: Gaussian HMM for regime switching
+statsmodels==0.14.4    # Engine 4: stats / causality (Granger, etc.)
 
 # ============================================================================
 # ADVANCED ML & OPTIMIZATION

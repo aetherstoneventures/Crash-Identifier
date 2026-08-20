@@ -30,11 +30,14 @@ class TestYahooCollector:
         }, index=dates)
 
     def test_symbols_dict(self, collector):
-        """Test SYMBOLS dict contains expected symbols."""
+        """SYMBOLS carries S&P 500 only; VIX is sourced from FRED.
+
+        VIXCLS on FRED is the authoritative series and goes back to 1990,
+        so the Yahoo VIX path was deliberately removed.
+        """
         assert 'sp500' in collector.SYMBOLS
-        assert 'vix' in collector.SYMBOLS
         assert collector.SYMBOLS['sp500'] == '^GSPC'
-        assert collector.SYMBOLS['vix'] == '^VIX'
+        assert 'vix' not in collector.SYMBOLS
 
     def test_fetch_price_data_invalid_symbol(self, collector):
         """Test fetch_price_data with invalid symbol."""
@@ -64,15 +67,14 @@ class TestYahooCollector:
         assert call_args[0][0] == '^GSPC'
 
     @patch('yfinance.download')
-    def test_fetch_price_data_vix(self, mock_download, collector, sample_price_data):
-        """Test fetching VIX data."""
+    def test_fetch_price_data_vix_is_rejected(self, mock_download, collector,
+                                              sample_price_data):
+        """Requesting VIX from Yahoo must fail loudly, not silently return."""
         mock_download.return_value = sample_price_data
 
-        result = collector.fetch_price_data('vix')
-
-        mock_download.assert_called_once()
-        call_args = mock_download.call_args
-        assert call_args[0][0] == '^VIX'
+        with pytest.raises(ValueError, match="Unknown symbol"):
+            collector.fetch_price_data('vix')
+        mock_download.assert_not_called()
 
     def test_calculate_returns(self, collector, sample_price_data):
         """Test log returns calculation."""
@@ -155,7 +157,8 @@ class TestYahooCollector:
 
         collector.fetch_sp500_and_vix()
 
-        assert mock_download.call_count == 2
+        # Only the S&P 500 leg hits Yahoo now; VIX comes from FRED.
+        assert mock_download.call_count == 1
 
 
 class TestYahooCollectorIntegration:
